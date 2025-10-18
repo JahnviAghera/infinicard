@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:infinicard/models/contact_model.dart';
 import 'package:infinicard/screens/contact_detail_screen.dart';
+import 'package:infinicard/services/api_service.dart';
+import 'package:infinicard/services/contact_storage_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:io';
 
 class ContactsListScreen extends StatefulWidget {
   const ContactsListScreen({super.key});
@@ -12,55 +15,198 @@ class ContactsListScreen extends StatefulWidget {
 
 class _ContactsListScreenState extends State<ContactsListScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ApiService _apiService = ApiService();
+  final ContactStorageService _storageService = ContactStorageService();
+
   List<Contact> _allContacts = [];
   List<Contact> _filteredContacts = [];
   String _filterBy = 'All';
   final List<String> _filterOptions = ['All', 'Company', 'Tag'];
 
+  bool _isLoading = false;
+  bool _isOfflineMode = false;
+  String? _errorMessage;
+
   @override
   void initState() {
     super.initState();
-    _loadDemoContacts();
-    _filteredContacts = _allContacts;
+    _loadContacts();
     _searchController.addListener(_filterContacts);
   }
 
-  void _loadDemoContacts() {
-    _allContacts = [
-      Contact(
-        id: '1',
-        name: 'Alice Johnson',
-        title: 'Software Engineer',
-        company: 'Tech Corp',
-        email: 'alice@techcorp.com',
-        phone: '+1 555 0101',
-        avatarUrl: 'https://i.pravatar.cc/150?img=1',
-        tags: ['Developer', 'Tech'],
-        createdAt: DateTime.now().subtract(const Duration(days: 3)),
-      ),
-      Contact(
-        id: '2',
-        name: 'Bob Smith',
-        title: 'Product Manager',
-        company: 'StartupXYZ',
-        email: 'bob@startupxyz.com',
-        phone: '+1 555 0102',
-        avatarUrl: 'https://i.pravatar.cc/150?img=2',
-        tags: ['Manager', 'Product'],
-        createdAt: DateTime.now().subtract(const Duration(days: 5)),
-      ),
-      Contact(
-        id: '3',
-        name: 'Carol Davis',
-        title: 'Designer',
-        company: 'Creative Agency',
-        email: 'carol@creative.com',
-        phone: '+1 555 0103',
-        avatarUrl: 'https://i.pravatar.cc/150?img=3',
-        tags: ['Designer', 'Creative'],
-        createdAt: DateTime.now().subtract(const Duration(days: 7)),
-      ),
-    ];
+  Future<void> _loadContacts() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _isOfflineMode = false;
+    });
+
+    // First, try to load from cache immediately for faster display
+    final cachedContacts = await _storageService.loadContacts();
+    if (cachedContacts.isNotEmpty && mounted) {
+      setState(() {
+        _allContacts = cachedContacts;
+        _filteredContacts = cachedContacts;
+      });
+    }
+
+    // Then try to fetch from network
+    try {
+      // Check internet connectivity
+      final hasConnection = await _checkInternetConnection();
+
+      if (!hasConnection) {
+        // No internet, use cache only
+        if (cachedContacts.isEmpty && mounted) {
+          setState(() {
+            _errorMessage = 'No internet connection. Please try again later.';
+            _isLoading = false;
+            _isOfflineMode = true;
+          });
+        } else if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _isOfflineMode = true;
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('📴 Offline mode - Showing cached contacts'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+        return;
+      }
+
+      final result = await _apiService.getCards();
+
+      if (result['success'] == true) {
+        final cardsData = result['data'];
+
+        // Handle the case where data might not be a List
+        List<dynamic> cardsList;
+        if (cardsData is List) {
+          cardsList = cardsData;
+        } else if (cardsData is Map && cardsData.containsKey('cards')) {
+          cardsList = cardsData['cards'] as List;
+        } else {
+          throw Exception('Unexpected data format from API');
+        }
+
+        final contacts = cardsList.map((card) {
+          return Contact(
+            id: card['id']?.toString() ?? '',
+            name: card['full_name']?.toString() ?? 'Unknown',
+            title: card['job_title']?.toString() ?? '',
+            company: card['company_name']?.toString() ?? '',
+            email: card['email']?.toString() ?? '',
+            phone: card['phone']?.toString() ?? '',
+            website: card['website']?.toString() ?? '',
+            address: card['address']?.toString() ?? '',
+            notes: card['notes']?.toString() ?? '',
+            avatarUrl: null,
+            tags: card['tags'] != null
+                ? (card['tags'] as List)
+                      .map((tag) => tag['name'].toString())
+                      .toList()
+                : [],
+            createdAt: card['created_at'] != null
+                ? DateTime.tryParse(card['created_at'].toString()) ??
+                      DateTime.now()
+                : DateTime.now(),
+            isFavorite: card['is_favorite'] == true,
+          );
+        }).toList();
+
+        // Save to cache
+        await _storageService.saveContacts(contacts);
+
+        if (mounted) {
+          setState(() {
+            _allContacts = contacts;
+            _filteredContacts = contacts;
+            _isLoading = false;
+            _isOfflineMode = false;
+          });
+        }
+      } else {
+        // API returned error, try to use cache
+        if (cachedContacts.isEmpty && mounted) {
+          setState(() {
+            _errorMessage = result['message'] ?? 'Failed to load contacts';
+            _isLoading = false;
+          });
+        } else if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '⚠️ ${result['message'] ?? 'API error'} - Showing cached data',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error loading contacts: $e');
+
+      // Network error, use cache if available
+      if (cachedContacts.isEmpty && mounted) {
+        setState(() {
+          _errorMessage = _parseErrorMessage(e);
+          _isLoading = false;
+          _isOfflineMode = true;
+        });
+      } else if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isOfflineMode = true;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('📴 Network error - Showing cached contacts'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  /// Parse error message to be user-friendly
+  String _parseErrorMessage(dynamic error) {
+    final errorStr = error.toString();
+
+    if (errorStr.contains('FormatException') || errorStr.contains('DOCTYPE')) {
+      return 'Server error: Invalid response format. Please check if the backend is running correctly.';
+    } else if (errorStr.contains('SocketException') ||
+        errorStr.contains('ClientException')) {
+      return 'Cannot connect to server. Please check your internet connection.';
+    } else if (errorStr.contains('TimeoutException')) {
+      return 'Connection timeout. Please try again.';
+    } else {
+      return 'Network error: ${errorStr.split(':').first}';
+    }
+  }
+
+  /// Check if device has internet connection
+  Future<bool> _checkInternetConnection() async {
+    try {
+      final result = await InternetAddress.lookup(
+        'google.com',
+      ).timeout(const Duration(seconds: 3));
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
   }
 
   @override
@@ -103,13 +249,45 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Contacts',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Contacts',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (_isOfflineMode)
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.cloud_off,
+                                  color: Colors.orange[400],
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Offline Mode',
+                                  style: TextStyle(
+                                    color: Colors.orange[400],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.white),
+                        onPressed: _isLoading ? null : _loadContacts,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -161,7 +339,44 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
               ),
             ),
             Expanded(
-              child: _filteredContacts.isEmpty
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF1E88E5),
+                      ),
+                    )
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 80,
+                            color: Colors.red[400],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _errorMessage!,
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadContacts,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1E88E5),
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _filteredContacts.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -179,16 +394,29 @@ class _ContactsListScreenState extends State<ContactsListScreen> {
                               fontSize: 18,
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Scan a business card to get started',
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _filteredContacts.length,
-                      itemBuilder: (context, index) {
-                        final contact = _filteredContacts[index];
-                        return _buildContactCard(contact);
-                      },
+                  : RefreshIndicator(
+                      color: const Color(0xFF1E88E5),
+                      backgroundColor: const Color(0xFF1C1A1B),
+                      onRefresh: _loadContacts,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _filteredContacts.length,
+                        itemBuilder: (context, index) {
+                          final contact = _filteredContacts[index];
+                          return _buildContactCard(contact);
+                        },
+                      ),
                     ),
             ),
           ],

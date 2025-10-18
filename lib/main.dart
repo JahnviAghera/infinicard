@@ -1,6 +1,10 @@
+import 'dart:convert';
+
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // Import all new screens
@@ -23,6 +27,8 @@ import 'package:infinicard/screens/walkthrough_screen.dart';
 import 'package:infinicard/screens/login_screen.dart';
 import 'package:infinicard/screens/register_screen.dart';
 import 'package:infinicard/services/api_service.dart';
+
+import 'models/card_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -143,9 +149,9 @@ class _HomeState extends State<Home> {
     );
 
     _screens = [
-      const HomeScreen(),
-      const ContactsScreen(),
-      const CardScannerScreen(),
+      HomeScreen(),
+      const SettingsScreen(),
+      const ScanCardScreen()
       // const DocumentsScreen(),
     ];
   }
@@ -179,8 +185,8 @@ class _HomeState extends State<Home> {
               index: 2,
             ),
             _navItem(
-              icon: Icons.contact_phone_rounded,
-              label: 'Contacts',
+              icon: Icons.settings_rounded,
+              label: 'Settings',
               index: 1,
             ),
           ],
@@ -328,422 +334,58 @@ class _CardScannerScreenState extends State<CardScannerScreen> {
   }
 }
 
-// ===================== HOME SCREEN =====================
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0D0C0F),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1C1A1B),
-        title: const Text('Infinicard', style: TextStyle(color: Colors.white)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-            onPressed: () => Navigator.pushNamed(context, '/notifications'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () => Scaffold.of(context).openEndDrawer(),
-          ),
-        ],
-      ),
-      endDrawer: const AppDrawer(),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Column(
-            children: [
-              const SizedBox(height: 24),
-              // Quick Access Grid
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Quick Access',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      children: [
-                        _buildQuickAccessCard(
-                          context,
-                          'My Cards',
-                          Icons.credit_card,
-                          '/my-cards',
-                          Colors.blue,
-                        ),
-                        _buildQuickAccessCard(
-                          context,
-                          'Discover',
-                          Icons.explore,
-                          '/discover',
-                          Colors.purple,
-                        ),
-                        _buildQuickAccessCard(
-                          context,
-                          'Rewards',
-                          Icons.emoji_events,
-                          '/rewards',
-                          Colors.amber,
-                        ),
-                        _buildQuickAccessCard(
-                          context,
-                          'Sustainability',
-                          Icons.eco,
-                          '/sustainability',
-                          Colors.green,
-                        ),
-                        _buildQuickAccessCard(
-                          context,
-                          'Scan Card',
-                          Icons.qr_code_scanner,
-                          '/scan',
-                          Colors.orange,
-                        ),
-                      ],
-                    ),
-                    // const SizedBox(height: 16),
-                    // // Help Banner
-                    // Container(
-                    //   padding: const EdgeInsets.all(16),
-                    //   decoration: BoxDecoration(
-                    //     gradient: const LinearGradient(
-                    //       colors: [Color(0xFF1E88E5), Color(0xFF1565C0)],
-                    //     ),
-                    //     borderRadius: BorderRadius.circular(12),
-                    //   ),
-                    //   child: Row(
-                    //     children: [
-                    //       const Icon(
-                    //         Icons.lightbulb_outline,
-                    //         color: Colors.white,
-                    //       ),
-                    //       const SizedBox(width: 12),
-                    //       Expanded(
-                    //         child: Column(
-                    //           crossAxisAlignment: CrossAxisAlignment.start,
-                    //           children: [
-                    //             const Text(
-                    //               'Need Help?',
-                    //               style: TextStyle(
-                    //                 color: Colors.white,
-                    //                 fontWeight: FontWeight.bold,
-                    //               ),
-                    //             ),
-                    //             const SizedBox(height: 4),
-                    //             Text(
-                    //               'Learn how to use InfiniCard with interactive tours',
-                    //               style: TextStyle(
-                    //                 color: Colors.white.withOpacity(0.9),
-                    //                 fontSize: 13,
-                    //               ),
-                    //             ),
-                    //           ],
-                    //         ),
-                    //       ),
-                    //       IconButton(
-                    //         icon: const Icon(
-                    //           Icons.arrow_forward,
-                    //           color: Colors.white,
-                    //         ),
-                    //         onPressed: () =>
-                    //             Navigator.pushNamed(context, '/walkthrough'),
-                    //       ),
-                    //     ],
-                    //   ),
-                    // ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
+  State<HomeScreen> createState() => _HomeScreenState();
+}
 
-              // // Original Content
-              // Container(
-              //   width: 377,
-              //   height: 57,
-              //   child: Row(
-              //     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              //     children: [
-              //       Container(
-              //         width: 48,
-              //         height: 48,
-              //         clipBehavior: Clip.antiAlias,
-              //         decoration: ShapeDecoration(
-              //           color: const Color(0xFF1C1A1B),
-              //           shape: RoundedRectangleBorder(
-              //             borderRadius: BorderRadius.circular(8),
-              //           ),
-              //         ),
-              //         child: _profileImageUrl.isNotEmpty
-              //             ? Image.network(_profileImageUrl, fit: BoxFit.cover)
-              //             : const Icon(
-              //                 Icons.person_rounded,
-              //                 color: Colors.white,
-              //               ),
-              //       ),
-              //       Row(
-              //         children: [
-              //           _iconBox(
-              //             const Icon(Icons.add_rounded, color: Colors.white),
-              //           ),
-              //           const SizedBox(width: 36),
-              //           _iconBox(
-              //             const Icon(
-              //               Icons.notifications_none_rounded,
-              //               color: Colors.white,
-              //             ),
-              //           ),
-              //         ],
-              //       ),
-              //     ],
-              //   ),
-              // ),
-              // const SizedBox(height: 20),
-              // const Align(
-              //   alignment: Alignment.centerLeft,
-              //   child: Padding(
-              //     padding: EdgeInsets.symmetric(horizontal: 22),
-              //     child: Column(
-              //       crossAxisAlignment: CrossAxisAlignment.start,
-              //       children: [
-              //         Text(
-              //           'Welcome Back!',
-              //           style: TextStyle(
-              //             color: Colors.white,
-              //             fontSize: 28,
-              //             fontWeight: FontWeight.bold,
-              //           ),
-              //         ),
-              //         Text(
-              //           'Here is your information',
-              //           style: TextStyle(color: Colors.grey, fontSize: 16),
-              //         ),
-              //       ],
-              //     ),
-              //   ),
-              // ),
-              const SizedBox(height: 20),
-              ProfileCard(
-                name: 'Jahnvi Aghera',
-                role: 'Founder',
-                email: 'jahnviaghera@gmail.com',
-                mobile: '+91 87994 48954',
-                website: 'sunkinnovations.com',
-                imageUrl:
-                    'https://media.licdn.com/dms/image/v2/D4D0BAQGdL09z4DcMlw/company-logo_100_100/B4DZhPd0CNGkAQ-/0/1753679872650?e=1762387200&v=beta&t=4zP0r7DdO9tpoNSy_6paQXIdbalizfFD3VmqzPcQMBM',
-              ),
-              const SizedBox(height: 20),
-              Container(
-                width: 374,
-                height: 89,
-                clipBehavior: Clip.antiAlias,
-                decoration: ShapeDecoration(
-                  color: const Color(0xFF141213),
-                  shape: RoundedRectangleBorder(
-                    side: BorderSide(width: 1, color: const Color(0xFF2B292A)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 12,
-                      top: 19,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 21,
-                        children: [
-                          Container(
-                            width: 52,
-                            height: 52,
-                            clipBehavior: Clip.antiAlias,
-                            decoration: ShapeDecoration(
-                              color: const Color(0xFF9CC68F),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Stack(
-                              children: [
-                                Positioned(
-                                  left: 10,
-                                  top: 10,
-                                  child: Container(
-                                    width: 32,
-                                    height: 32,
-                                    clipBehavior: Clip.antiAlias,
-                                    decoration: BoxDecoration(),
-                                    child: Stack(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              spacing: 8,
-                              children: [
-                                SizedBox(
-                                  child: Text(
-                                    'jahnviaghera@gmail.com',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontFamily: 'Roboto',
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.10,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 228,
-                                  child: Text(
-                                    'Email',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontFamily: 'Roboto',
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.38,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 18),
-              Container(
-                width: 374,
-                height: 89,
-                clipBehavior: Clip.antiAlias,
-                decoration: ShapeDecoration(
-                  color: const Color(0xFF141213),
-                  shape: RoundedRectangleBorder(
-                    side: BorderSide(width: 1, color: const Color(0xFF2B292A)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 12,
-                      top: 19,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        spacing: 21,
-                        children: [
-                          Container(
-                            width: 52,
-                            height: 52,
-                            clipBehavior: Clip.antiAlias,
-                            decoration: ShapeDecoration(
-                              color: const Color(0xFF80A8CA),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: Stack(
-                              children: [
-                                Positioned(
-                                  left: 10,
-                                  top: 10,
-                                  child: Container(
-                                    width: 32,
-                                    height: 32,
-                                    clipBehavior: Clip.antiAlias,
-                                    decoration: BoxDecoration(),
-                                    child: Stack(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.start,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              spacing: 8,
-                              children: [
-                                SizedBox(
-                                  child: Text(
-                                    '+91 87994 48954',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontFamily: 'Roboto',
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.10,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 228,
-                                  child: Text(
-                                    'Mobile',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontFamily: 'Roboto',
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.38,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+class _HomeScreenState extends State<HomeScreen> {
+  Map<String, dynamic>? _userInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAndStoreUserInfo();
   }
 
-  Widget _iconBox([Widget? child]) => Container(
-    width: 48,
-    height: 48,
-    clipBehavior: Clip.antiAlias,
-    decoration: ShapeDecoration(
-      color: const Color(0xFF1C1A1B),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    ),
-    child: child ?? const SizedBox(),
-  );
+  Future<void> _fetchAndStoreUserInfo() async {
+    try {
+      // Replace with your actual API call
+      final response = await ApiService().getUserInfo();
+      if (response != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_info', jsonEncode(response));
+        print('User info fetched and stored: $response');
+        if (mounted) {
+          setState(() {
+            _userInfo = response;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching user info: $e');
+    }
+  }
 
-  static Widget _buildQuickAccessCard(
+  Future<List<BusinessCard>> _loadCards() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedData = prefs.getString('cached_cards');
+      if (cachedData != null) {
+        final List<dynamic> jsonList = jsonDecode(cachedData);
+        return jsonList
+            .map((json) => BusinessCard.fromJson(json as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('Error loading cards: $e');
+    }
+    return [];
+  }
+
+  Widget _buildQuickAccessCard(
     BuildContext context,
     String title,
     IconData icon,
@@ -784,9 +426,322 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0D0C0F),
+      // appBar: AppBar(
+      //       //   backgroundColor: const Color(0xFF1C1A1B),
+      //       //   title: const Text(
+      //       //     'Infinicard',
+      //       //     style: TextStyle(color: Colors.white),
+      //       //   ),
+      //       //   actions: [
+      //       //     IconButton(
+      //       //       icon:
+      //       //       const Icon(Icons.notifications_outlined, color: Colors.white),
+      //       //       onPressed: () {}, // TODO: add notification logic
+      //       //     ),
+      //       //   ],
+      //       // ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 24),
+            if (_userInfo != null)
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundImage: NetworkImage(_userInfo!['profile_picture'] ?? 'https://i.pravatar.cc/150'),
+                    radius: 24,
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Welcome, ${_userInfo!['fullName'] ?? 'User'}',
+                    style: const TextStyle(color: Colors.white, fontSize: 20),
+                  ),
+                ],
+              )
+            else
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.grey[800],
+                    radius: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 150,
+                        height: 20,
+                        color: Colors.grey[800],
+                      ),
+                    ],
+                  )
+                ],
+              ),
+
+            // const Text(
+            //   'Quick Access',
+            //   style: TextStyle(
+            //     color: Colors.white,
+            //     fontSize: 20,
+            //     fontWeight: FontWeight.bold,
+            //   ),
+            // ),
+            // const SizedBox(height: 16),
+            // GridView.count(
+            //   crossAxisCount: 2,
+            //   shrinkWrap: true,
+            //   physics: const NeverScrollableScrollPhysics(),
+            //   mainAxisSpacing: 12,
+            //   crossAxisSpacing: 12,
+            //   children: [
+            //     _buildQuickAccessCard(
+            //         context, 'My Cards', Icons.credit_card, '/my-cards', Colors.blue),
+            //     _buildQuickAccessCard(
+            //         context, 'Discover', Icons.explore, '/discover', Colors.purple),
+            //     _buildQuickAccessCard(
+            //         context, 'Rewards', Icons.emoji_events, '/rewards', Colors.amber),
+            //     _buildQuickAccessCard(
+            //         context, 'Sustainability', Icons.eco, '/sustainability', Colors.green),
+            //     _buildQuickAccessCard(
+            //         context, 'Scan Card', Icons.qr_code_scanner, '/scan', Colors.orange),
+            //   ],
+            // ),
+            const SizedBox(height: 32),
+
+            // Show first existing card from cache
+            FutureBuilder<List<BusinessCard>>(
+              future: _loadCards(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const _CardSkeleton();
+                }
+                if (snapshot.hasError) {
+                  return const Text(
+                    'Error loading card',
+                    style: TextStyle(color: Colors.white),
+                  );
+                }
+                final cards = snapshot.data ?? [];
+                if (cards.isEmpty) {
+                  return const Text(
+                    'No card found',
+                    style: TextStyle(color: Colors.white),
+                  );
+                }
+
+                final card = cards.first;
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(card.themeColor),
+                        Color(card.themeColor).withOpacity(0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(card.themeColor).withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        card.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        card.title,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 18,
+                        ),
+                      ),
+                      Text(
+                        card.company,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        card.email,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        card.phone,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 32),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1C1A1B),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // const Text(
+                  //   'Actions',
+                  //   style: TextStyle(
+                  //     color: Colors.white,
+                  //     fontSize: 18,
+                  //     fontWeight: FontWeight.bold,
+                  //   ),
+                  // ),
+                  // const SizedBox(height: 16),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/create-card'),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.add, color: Colors.white70),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Create Card',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/my-cards'),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.credit_card, color: Colors.white),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'My Cards',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/contacts'),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.contact_phone, color: Colors.white),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Contacts',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/discover'),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.explore, color: Colors.white),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Discover',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-// ===================== APP DRAWER =====================
+class _CardSkeleton extends StatelessWidget {
+  const _CardSkeleton();
+
+  Widget _buildSkeletonLine({required double width, required double height}) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Colors.grey[800],
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1A1B),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSkeletonLine(width: 200, height: 24),
+          const SizedBox(height: 12),
+          _buildSkeletonLine(width: 150, height: 18),
+          const SizedBox(height: 8),
+          _buildSkeletonLine(width: 120, height: 16),
+          const SizedBox(height: 20),
+          _buildSkeletonLine(width: double.infinity, height: 14),
+          const SizedBox(height: 8),
+          _buildSkeletonLine(width: double.infinity, height: 14),
+        ],
+      ),
+    );
+  }
+}
+
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
 

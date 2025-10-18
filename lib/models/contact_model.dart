@@ -10,6 +10,8 @@ class Contact {
   final String github;
   final String? avatarUrl;
   final String notes;
+  final String address;
+  final bool isFavorite;
   final DateTime? reminderDate;
   final List<String> tags;
   final DateTime createdAt;
@@ -26,6 +28,8 @@ class Contact {
     this.github = '',
     this.avatarUrl,
     this.notes = '',
+    this.address = '',
+    this.isFavorite = false,
     this.reminderDate,
     this.tags = const [],
     required this.createdAt,
@@ -43,6 +47,8 @@ class Contact {
     'github': github,
     'avatarUrl': avatarUrl,
     'notes': notes,
+    'address': address,
+    'isFavorite': isFavorite,
     'reminderDate': reminderDate?.toIso8601String(),
     'tags': tags,
     'createdAt': createdAt.toIso8601String(),
@@ -60,6 +66,8 @@ class Contact {
     github: json['github'] ?? '',
     avatarUrl: json['avatarUrl'],
     notes: json['notes'] ?? '',
+    address: json['address'] ?? '',
+    isFavorite: json['isFavorite'] ?? false,
     reminderDate: json['reminderDate'] != null
         ? DateTime.parse(json['reminderDate'])
         : null,
@@ -79,6 +87,8 @@ class Contact {
     String? github,
     String? avatarUrl,
     String? notes,
+    String? address,
+    bool? isFavorite,
     DateTime? reminderDate,
     List<String>? tags,
     DateTime? createdAt,
@@ -95,6 +105,8 @@ class Contact {
       github: github ?? this.github,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       notes: notes ?? this.notes,
+      address: address ?? this.address,
+      isFavorite: isFavorite ?? this.isFavorite,
       reminderDate: reminderDate ?? this.reminderDate,
       tags: tags ?? this.tags,
       createdAt: createdAt ?? this.createdAt,

@@ -3,6 +3,15 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
+  /// Get user info (profile)
+  Future<Map<String, dynamic>?> getUserInfo() async {
+    final result = await getProfile();
+    if (result['success'] == true && result['data'] != null) {
+      return result['data'] as Map<String, dynamic>;
+    }
+    return null;
+  }
+
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;

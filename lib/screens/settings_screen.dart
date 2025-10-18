@@ -164,48 +164,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
-            _buildSection(
-              title: 'Account',
-              children: [
-                _buildTile(
-                  icon: Icons.logout,
-                  title: 'Logout',
-                  titleColor: Colors.red,
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        backgroundColor: const Color(0xFF1C1A1B),
-                        title: const Text(
-                          'Logout',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                        content: const Text(
-                          'Are you sure you want to logout?',
-                          style: TextStyle(color: Colors.white70),
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              // Logout logic
-                            },
-                            child: const Text(
-                              'Logout',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+            // _buildSection(
+            //   title: 'Account',
+            //   children: [
+            //     _buildTile(
+            //       icon: Icons.logout,
+            //       title: 'Logout',
+            //       titleColor: Colors.red,
+            //       onTap: () {
+            //         showDialog(
+            //           context: context,
+            //           builder: (context) => AlertDialog(
+            //             backgroundColor: const Color(0xFF1C1A1B),
+            //             title: const Text(
+            //               'Logout',
+            //               style: TextStyle(color: Colors.white),
+            //             ),
+            //             content: const Text(
+            //               'Are you sure you want to logout?',
+            //               style: TextStyle(color: Colors.white70),
+            //             ),
+            //             actions: [
+            //               TextButton(
+            //                 onPressed: () => Navigator.pop(context),
+            //                 child: const Text('Cancel'),
+            //               ),
+            //               TextButton(
+            //                 onPressed: () {
+            //                   Navigator.pop(context);
+            //                   // Logout logic
+            //                 },
+            //                 child: const Text(
+            //                   'Logout',
+            //                   style: TextStyle(color: Colors.red),
+            //                 ),
+            //               ),
+            //             ],
+            //           ),
+            //         );
+            //       },
+            //     ),
+            //   ],
+            // ),
 
             // Account Actions Section
             _buildSection(
