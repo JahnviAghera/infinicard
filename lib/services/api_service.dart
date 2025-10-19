@@ -56,7 +56,6 @@ class ApiService {
         final userId = prefs.getString(_userIdKey);
         final userEmail = prefs.getString(_userEmailKey);
         final userName = prefs.getString(_userNameKey);
-
         _currentUser = {'id': userId, 'email': userEmail, 'username': userName};
 
         return true;
@@ -145,13 +144,16 @@ class ApiService {
           data['data']['refreshToken'],
           data['data']['user'],
         );
-
         return {'success': true, 'user': data['data']['user']};
       } else {
+        // Defensive: ensure errors is always a list
+        final errors = (data['errors'] is List)
+            ? data['errors']
+            : (data['errors'] != null ? [data['errors']] : []);
         return {
           'success': false,
           'message': data['message'] ?? 'Registration failed',
-          'errors': data['errors'],
+          'errors': errors,
         };
       }
     } catch (e) {
@@ -525,5 +527,205 @@ class ApiService {
       return data['success'] == true;
     }
     return false;
+  }
+
+  // ========== DISCOVER ENDPOINTS ==========
+
+  /// Get professionals for discover page
+  Future<Map<String, dynamic>> getProfessionals({
+    String? location,
+    String? field,
+    String? search,
+    int? limit,
+    int? offset,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (location != null && location != 'All') {
+        queryParams['location'] = location;
+      }
+      if (field != null && field != 'All') queryParams['field'] = field;
+      if (search != null) queryParams['search'] = search;
+      if (limit != null) queryParams['limit'] = limit.toString();
+      if (offset != null) queryParams['offset'] = offset.toString();
+
+      final uri = Uri.parse(
+        '$baseUrl/discover/professionals',
+      ).replace(queryParameters: queryParams);
+
+      final response = await http.get(
+        uri,
+        headers: _getHeaders(includeAuth: true),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'data': data['data'],
+          'pagination': data['pagination'],
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to get professionals',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Send connection request
+  Future<Map<String, dynamic>> sendConnectionRequest({
+    required String receiverId,
+    String? message,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/discover/connections/request'),
+        headers: _getHeaders(includeAuth: true),
+        body: jsonEncode({
+          'receiverId': receiverId,
+          if (message != null) 'message': message,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 201) {
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to send connection request',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Get user's connections
+  Future<Map<String, dynamic>> getConnections({String? status}) async {
+    try {
+      final queryParams = <String, String>{};
+      if (status != null) queryParams['status'] = status;
+
+      final uri = Uri.parse(
+        '$baseUrl/discover/connections',
+      ).replace(queryParameters: queryParams);
+
+      final response = await http.get(
+        uri,
+        headers: _getHeaders(includeAuth: true),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to get connections',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Accept connection request
+  Future<Map<String, dynamic>> acceptConnection(String connectionId) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/discover/connections/$connectionId/accept'),
+        headers: _getHeaders(includeAuth: true),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to accept connection',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Reject connection request
+  Future<Map<String, dynamic>> rejectConnection(String connectionId) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/discover/connections/$connectionId/reject'),
+        headers: _getHeaders(includeAuth: true),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to reject connection',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Get available locations
+  Future<Map<String, dynamic>> getLocations() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/discover/locations'),
+        headers: _getHeaders(includeAuth: true),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to get locations',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  /// Get available fields
+  Future<Map<String, dynamic>> getFields() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/discover/fields'),
+        headers: _getHeaders(includeAuth: true),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to get fields',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
   }
 }

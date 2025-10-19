@@ -679,7 +679,217 @@ Remove tag association from a contact.
 
 ---
 
-## 🔒 Error Responses
+## � Discover & Connections
+
+### Discover
+
+#### 1. Get Professionals
+Get a list of professionals for the discover page with optional filters.
+
+**Endpoint:** `GET /api/discover/professionals`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters:**
+- `location` (optional) - Filter by location
+- `field` (optional) - Filter by field/industry
+- `search` (optional) - Search in name, profession, bio
+- `limit` (optional) - Results per page (default: 50)
+- `offset` (optional) - Pagination offset (default: 0)
+
+**Example:** `GET /api/discover/professionals?location=Mumbai&field=Technology&limit=20`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "prof-uuid-1",
+      "userId": "user-uuid-1",
+      "name": "Sarah Williams",
+      "profession": "Full Stack Developer",
+      "location": "Mumbai",
+      "field": "Technology",
+      "avatar": "https://i.pravatar.cc/150?img=10",
+      "bio": "Passionate about building scalable web applications",
+      "connections": 245,
+      "tags": ["React", "Node.js", "Python"],
+      "connectionStatus": null
+    }
+  ],
+  "pagination": {
+    "total": 8,
+    "limit": 50,
+    "offset": 0
+  }
+}
+```
+
+---
+
+#### 2. Get Available Locations
+Get list of all available location filters.
+
+**Endpoint:** `GET /api/discover/locations`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": ["All", "Mumbai", "Delhi", "Bangalore", "Pune"]
+}
+```
+
+---
+
+#### 3. Get Available Fields
+Get list of all available field/industry filters.
+
+**Endpoint:** `GET /api/discover/fields`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": ["All", "Technology", "Marketing", "Design", "Finance"]
+}
+```
+
+---
+
+### Connections
+
+#### 1. Send Connection Request
+Send a connection request to another professional.
+
+**Endpoint:** `POST /api/discover/connections/request`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Request Body:**
+```json
+{
+  "receiverId": "user-uuid-2",
+  "message": "I'd like to connect with you!"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "success": true,
+  "message": "Connection request sent successfully",
+  "data": {
+    "id": "connection-uuid",
+    "senderId": "user-uuid-1",
+    "receiverId": "user-uuid-2",
+    "status": "pending",
+    "message": "I'd like to connect with you!",
+    "createdAt": "2025-10-18T10:00:00.000Z"
+  }
+}
+```
+
+**Errors:**
+- `400 Bad Request` - Missing receiverId or trying to connect with self
+- `409 Conflict` - Connection already exists
+
+---
+
+#### 2. Get Connections
+Get user's connections with optional status filter.
+
+**Endpoint:** `GET /api/discover/connections`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Query Parameters:**
+- `status` (optional) - Filter by status: `pending`, `accepted`, `rejected`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "connection-uuid",
+      "senderId": "user-uuid-1",
+      "receiverId": "user-uuid-2",
+      "status": "accepted",
+      "message": "Let's connect!",
+      "otherUser": {
+        "name": "John Doe",
+        "profession": "Software Engineer",
+        "avatar": "https://example.com/avatar.jpg"
+      },
+      "isSender": true,
+      "createdAt": "2025-10-18T10:00:00.000Z",
+      "updatedAt": "2025-10-18T11:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+#### 3. Accept Connection Request
+Accept a pending connection request (receiver only).
+
+**Endpoint:** `PATCH /api/discover/connections/:id/accept`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Connection request accepted",
+  "data": {
+    "id": "connection-uuid",
+    "sender_id": "user-uuid-1",
+    "receiver_id": "user-uuid-2",
+    "status": "accepted",
+    "updated_at": "2025-10-18T11:00:00.000Z"
+  }
+}
+```
+
+**Errors:**
+- `404 Not Found` - Connection not found or already processed
+
+---
+
+#### 4. Reject Connection Request
+Reject a pending connection request (receiver only).
+
+**Endpoint:** `PATCH /api/discover/connections/:id/reject`
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "Connection request rejected",
+  "data": {
+    "id": "connection-uuid",
+    "status": "rejected",
+    "updated_at": "2025-10-18T11:00:00.000Z"
+  }
+}
+```
+
+**Errors:**
+- `404 Not Found` - Connection not found or already processed
+
+---
+
+## �🔒 Error Responses
 
 ### Standard Error Format
 ```json

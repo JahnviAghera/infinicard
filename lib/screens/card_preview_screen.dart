@@ -4,6 +4,8 @@ import 'package:flutter/rendering.dart';
 import 'dart:ui' as ui;
 import 'package:infinicard/models/card_model.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:infinicard/utils/vcard_generator.dart';
 
 class CardPreviewScreen extends StatefulWidget {
   final BusinessCard card;
@@ -20,6 +22,7 @@ class _CardPreviewScreenState extends State<CardPreviewScreen>
   late Animation<double> _flipAnimation;
   bool _showFront = true;
   final GlobalKey _cardKey = GlobalKey();
+  bool _isOnlineMode = false; // Toggle between online and offline QR
 
   @override
   void initState() {
@@ -51,20 +54,17 @@ class _CardPreviewScreenState extends State<CardPreviewScreen>
   }
 
   Future<void> _shareQR() async {
-    // Generate QR code data
-    final cardData =
-        'BEGIN:VCARD\n'
-        'VERSION:3.0\n'
-        'FN:${widget.card.name}\n'
-        'TITLE:${widget.card.title}\n'
-        'ORG:${widget.card.company}\n'
-        'EMAIL:${widget.card.email}\n'
-        'TEL:${widget.card.phone}\n'
-        'URL:${widget.card.website}\n'
-        'END:VCARD';
+    // Generate data based on current mode
+    final qrData = _isOnlineMode
+        ? VCardGenerator.generateOnlineUrl(widget.card)
+        : VCardGenerator.generateVCard(widget.card);
+
+    final shareText = _isOnlineMode
+        ? 'Check out my digital business card!\n\n$qrData'
+        : 'Save my contact:\n\n$qrData';
 
     await Share.share(
-      'Check out my digital business card!\n\n$cardData',
+      shareText,
       subject: '${widget.card.name} - Digital Business Card',
     );
   }
@@ -85,8 +85,8 @@ class _CardPreviewScreenState extends State<CardPreviewScreen>
         format: ui.ImageByteFormat.png,
       );
       if (byteData != null) {
-        Uint8List pngBytes = byteData.buffer.asUint8List();
-        // Save to gallery or share
+        // Uint8List pngBytes = byteData.buffer.asUint8List();
+        // TODO: Save to gallery or share pngBytes
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Card saved as PNG!')));
@@ -239,6 +239,11 @@ class _CardPreviewScreenState extends State<CardPreviewScreen>
   }
 
   Widget _buildCardBack() {
+    // Generate QR data based on mode
+    final qrData = _isOnlineMode
+        ? VCardGenerator.generateOnlineUrl(widget.card)
+        : VCardGenerator.generateVCard(widget.card);
+
     return Container(
       width: double.infinity,
       height: 300,
@@ -257,35 +262,50 @@ class _CardPreviewScreenState extends State<CardPreviewScreen>
           ),
         ],
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // Mode toggle
           Container(
-            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2B292A),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildModeButton('Offline', !_isOnlineMode, false),
+                _buildModeButton('Online', _isOnlineMode, true),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // QR Code
+          Container(
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Column(
-              children: [
-                const Icon(Icons.qr_code_2, size: 80, color: Colors.black),
-                const SizedBox(height: 8),
-                Text(
-                  'QR Code',
-                  style: TextStyle(
-                    color: Colors.grey[800],
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            child: QrImageView(
+              data: qrData,
+              version: QrVersions.auto,
+              size: 140,
+              backgroundColor: Colors.white,
+              eyeStyle: QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: Colors.black,
+              ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Text(
-            'Scan to save contact',
-            style: TextStyle(color: Colors.grey[400], fontSize: 14),
+            _isOnlineMode
+                ? 'Scan to view online'
+                : 'Scan with Google Lens\nto save contact',
+            style: TextStyle(color: Colors.grey[400], fontSize: 12),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           if (widget.card.linkedIn.isNotEmpty || widget.card.github.isNotEmpty)
@@ -425,6 +445,31 @@ class _CardPreviewScreenState extends State<CardPreviewScreen>
               textAlign: TextAlign.center,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeButton(String label, bool isActive, bool isOnline) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isOnlineMode = isOnline;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? Color(widget.card.themeColor) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? Colors.white : Colors.grey[500],
+            fontSize: 12,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+          ),
         ),
       ),
     );

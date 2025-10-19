@@ -3,13 +3,15 @@ const helmet = require('helmet');
 const cors = require('cors');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const { pool } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const cardsRoutes = require('./routes/cards');
 const contactsRoutes = require('./routes/contacts');
 const tagsRoutes = require('./routes/tags');
+const discoverRoutes = require('./routes/discover');
 
 const app = express();
 const PORT = process.env.API_PORT || 3000;
@@ -68,6 +70,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/cards', cardsRoutes);
 app.use('/api/contacts', contactsRoutes);
 app.use('/api/tags', tagsRoutes);
+app.use('/api/discover', discoverRoutes);
 const notificationsRoutes = require('./routes/notifications');
 app.use('/api/notifications', notificationsRoutes);
 

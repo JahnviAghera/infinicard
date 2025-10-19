@@ -151,7 +151,7 @@ class _HomeState extends State<Home> {
     _screens = [
       HomeScreen(),
       const SettingsScreen(),
-      const ScanCardScreen()
+      const ScanCardScreen(),
       // const DocumentsScreen(),
     ];
   }
@@ -184,11 +184,7 @@ class _HomeState extends State<Home> {
               label: 'Scan',
               index: 2,
             ),
-            _navItem(
-              icon: Icons.settings_rounded,
-              label: 'Settings',
-              index: 1,
-            ),
+            _navItem(icon: Icons.settings_rounded, label: 'Settings', index: 1),
           ],
         ),
       ),
@@ -455,7 +451,10 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundImage: NetworkImage(_userInfo!['profile_picture'] ?? 'https://i.pravatar.cc/150'),
+                    backgroundImage: NetworkImage(
+                      _userInfo!['profile_picture'] ??
+                          'https://i.pravatar.cc/150',
+                    ),
                     radius: 24,
                   ),
                   const SizedBox(width: 16),
@@ -468,10 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
             else
               Row(
                 children: [
-                  CircleAvatar(
-                    backgroundColor: Colors.grey[800],
-                    radius: 24,
-                  ),
+                  CircleAvatar(backgroundColor: Colors.grey[800], radius: 24),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -482,7 +478,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: Colors.grey[800],
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
 
@@ -632,61 +628,46 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(width: 12),
                         const Text(
                           'Create Card',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 10),
                   GestureDetector(
                     onTap: () => Navigator.pushNamed(context, '/my-cards'),
                     child: Column(
                       children: [
                         const Icon(Icons.credit_card, color: Colors.white),
-                        const SizedBox(width: 12),
                         const Text(
                           'My Cards',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 10),
                   GestureDetector(
                     onTap: () => Navigator.pushNamed(context, '/contacts'),
                     child: Column(
                       children: [
                         const Icon(Icons.contact_phone, color: Colors.white),
-                        const SizedBox(width: 12),
                         const Text(
                           'Contacts',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 10),
                   GestureDetector(
                     onTap: () => Navigator.pushNamed(context, '/discover'),
                     child: Column(
                       children: [
                         const Icon(Icons.explore, color: Colors.white),
-                        const SizedBox(width: 12),
                         const Text(
                           'Discover',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                       ],
                     ),

@@ -155,14 +155,14 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
+                    // gradient: LinearGradient(
+                    //   colors: [
+                    //     Colors.transparent,
+                    //     Colors.black.withOpacity(0.7),
+                    //   ],
+                    //   begin: Alignment.topCenter,
+                    //   end: Alignment.bottomCenter,
+                    // ),
                   ),
                   child: Column(
                     children: [

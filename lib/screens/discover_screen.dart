@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -8,75 +9,120 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
+  final ApiService _apiService = ApiService();
   String _selectedLocation = 'All';
   String _selectedField = 'All';
-  final List<String> _locations = [
-    'All',
-    'Mumbai',
-    'Delhi',
-    'Bangalore',
-    'Pune',
-  ];
-  final List<String> _fields = [
-    'All',
-    'Technology',
-    'Marketing',
-    'Design',
-    'Finance',
-  ];
-  final int _userPoints = 1250; // Demo points
+  List<String> _locations = ['All'];
+  List<String> _fields = ['All'];
+  final int _userPoints =
+      1250; // Demo points - could be fetched from user profile
 
-  final List<Map<String, dynamic>> _professionals = [
-    {
-      'name': 'Sarah Williams',
-      'profession': 'Full Stack Developer',
-      'location': 'Mumbai',
-      'field': 'Technology',
-      'avatar': 'https://i.pravatar.cc/150?img=10',
-      'tags': ['React', 'Node.js', 'Python'],
-      'connections': 245,
-    },
-    {
-      'name': 'Michael Chen',
-      'profession': 'Product Designer',
-      'location': 'Bangalore',
-      'field': 'Design',
-      'avatar': 'https://i.pravatar.cc/150?img=11',
-      'tags': ['UI/UX', 'Figma', 'Prototyping'],
-      'connections': 189,
-    },
-    {
-      'name': 'Priya Sharma',
-      'profession': 'Marketing Manager',
-      'location': 'Delhi',
-      'field': 'Marketing',
-      'avatar': 'https://i.pravatar.cc/150?img=12',
-      'tags': ['Digital Marketing', 'SEO', 'Content'],
-      'connections': 312,
-    },
-    {
-      'name': 'David Kumar',
-      'profession': 'Data Scientist',
-      'location': 'Pune',
-      'field': 'Technology',
-      'avatar': 'https://i.pravatar.cc/150?img=13',
-      'tags': ['ML', 'Python', 'Analytics'],
-      'connections': 156,
-    },
-  ];
+  List<Map<String, dynamic>> _professionals = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  List<Map<String, dynamic>> get _filteredProfessionals {
-    return _professionals.where((prof) {
-      final locationMatch =
-          _selectedLocation == 'All' || prof['location'] == _selectedLocation;
-      final fieldMatch =
-          _selectedField == 'All' || prof['field'] == _selectedField;
-      return locationMatch && fieldMatch;
-    }).toList();
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
   }
 
-  void _connectWithProfessional(Map<String, dynamic> professional) {
-    showDialog(
+  Future<void> _loadInitialData() async {
+    await Future.wait([_loadLocations(), _loadFields(), _loadProfessionals()]);
+  }
+
+  Future<void> _loadLocations() async {
+    try {
+      final result = await _apiService.getLocations();
+      if (result['success'] == true && mounted) {
+        setState(() {
+          _locations = List<String>.from(result['data'] ?? ['All']);
+        });
+      }
+    } catch (e) {
+      print('Error loading locations: $e');
+    }
+  }
+
+  Future<void> _loadFields() async {
+    try {
+      final result = await _apiService.getFields();
+      if (result['success'] == true && mounted) {
+        setState(() {
+          _fields = List<String>.from(result['data'] ?? ['All']);
+        });
+      }
+    } catch (e) {
+      print('Error loading fields: $e');
+    }
+  }
+
+  Future<void> _loadProfessionals() async {
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await _apiService.getProfessionals(
+        location: _selectedLocation != 'All' ? _selectedLocation : null,
+        field: _selectedField != 'All' ? _selectedField : null,
+      );
+
+      if (result['success'] == true && mounted) {
+        setState(() {
+          _professionals = List<Map<String, dynamic>>.from(
+            result['data'] ?? [],
+          );
+          _isLoading = false;
+        });
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = result['message'] ?? 'Failed to load professionals';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Network error: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _connectWithProfessional(
+    Map<String, dynamic> professional,
+  ) async {
+    // Check if already connected or request pending
+    final connectionStatus = professional['connectionStatus'];
+
+    if (connectionStatus == 'pending') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connection request already pending'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (connectionStatus == 'accepted') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Already connected with this professional'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1C1A1B),
@@ -90,20 +136,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Connection request sent to ${professional['name']}!',
-                  ),
-                ),
-              );
-            },
+            onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1E88E5),
             ),
@@ -112,6 +149,78 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         ],
       ),
     );
+
+    if (confirmed == true) {
+      // Show loading indicator
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('Sending connection request...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      try {
+        // Always use professional['userId'] for connections, as it must exist in users table
+        final receiverId = professional['userId'];
+        if (receiverId == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Cannot send request: Professional has no user account.',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+        final result = await _apiService.sendConnectionRequest(
+          receiverId: receiverId,
+        );
+
+        if (!mounted) return;
+
+        if (result['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Connection request sent to ${professional['name']}!',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Refresh the professionals list to update connection status
+          await _loadProfessionals();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result['message'] ?? 'Failed to send connection request',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   @override
@@ -195,6 +304,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                             setState(() {
                               _selectedLocation = value!;
                             });
+                            _loadProfessionals();
                           },
                         ),
                       ),
@@ -208,6 +318,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                             setState(() {
                               _selectedField = value!;
                             });
+                            _loadProfessionals();
                           },
                         ),
                       ),
@@ -218,7 +329,43 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
             ),
             // Professionals List
             Expanded(
-              child: _filteredProfessionals.isEmpty
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF1E88E5),
+                      ),
+                    )
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 80,
+                            color: Colors.grey[700],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _errorMessage!,
+                            style: TextStyle(
+                              color: Colors.grey[600],
+                              fontSize: 16,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadProfessionals,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1E88E5),
+                            ),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _professionals.isEmpty
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -239,13 +386,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         ],
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _filteredProfessionals.length,
-                      itemBuilder: (context, index) {
-                        final professional = _filteredProfessionals[index];
-                        return _buildProfessionalCard(professional);
-                      },
+                  : RefreshIndicator(
+                      onRefresh: _loadProfessionals,
+                      color: const Color(0xFF1E88E5),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _professionals.length,
+                        itemBuilder: (context, index) {
+                          final professional = _professionals[index];
+                          return _buildProfessionalCard(professional);
+                        },
+                      ),
                     ),
             ),
           ],
@@ -364,42 +515,74 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: (professional['tags'] as List<String>).map((tag) {
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2B292A),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  tag,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                ),
-              );
-            }).toList(),
+            children: (professional['tags'] as List<dynamic>)
+                .map(
+                  (tag) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2B292A),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      tag.toString(),
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _connectWithProfessional(professional),
-              icon: const Icon(Icons.person_add),
-              label: const Text('Connect'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E88E5),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-            ),
+            child: _buildConnectionButton(professional),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildConnectionButton(Map<String, dynamic> professional) {
+    final connectionStatus = professional['connectionStatus'];
+
+    if (connectionStatus == 'accepted') {
+      return ElevatedButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.check_circle),
+        label: const Text('Connected'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green.withOpacity(0.3),
+          foregroundColor: Colors.green,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    } else if (connectionStatus == 'pending') {
+      return ElevatedButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.schedule),
+        label: const Text('Pending'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.orange.withOpacity(0.3),
+          foregroundColor: Colors.orange,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    } else {
+      return ElevatedButton.icon(
+        onPressed: () => _connectWithProfessional(professional),
+        icon: const Icon(Icons.person_add),
+        label: const Text('Connect'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF1E88E5),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    }
   }
 }
