@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:camera/camera.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uni_links/uni_links.dart';
 
 // Import all new screens
 import 'package:infinicard/screens/my_cards_screen.dart';
@@ -26,6 +28,7 @@ import 'package:infinicard/screens/onboarding_screen.dart';
 import 'package:infinicard/screens/walkthrough_screen.dart';
 import 'package:infinicard/screens/login_screen.dart';
 import 'package:infinicard/screens/register_screen.dart';
+import 'package:infinicard/screens/card_import_screen.dart';
 import 'package:infinicard/services/api_service.dart';
 
 import 'models/card_model.dart';
@@ -48,11 +51,68 @@ class _MyAppState extends State<MyApp> {
   final _apiService = ApiService();
   bool _isLoading = true;
   bool _isAuthenticated = false;
+  StreamSubscription? _linkSubscription;
+  String? _initialLink;
 
   @override
   void initState() {
     super.initState();
     _checkAuthentication();
+    _initDeepLinks();
+  }
+
+  Future<void> _initDeepLinks() async {
+    // Handle initial link if app was opened from a link
+    try {
+      _initialLink = await getInitialLink();
+      if (_initialLink != null) {
+        _handleDeepLink(_initialLink!);
+      }
+    } catch (e) {
+      debugPrint('Error getting initial link: $e');
+    }
+
+    // Handle links while app is already running
+    _linkSubscription = linkStream.listen(
+      (String? link) {
+        if (link != null) {
+          _handleDeepLink(link);
+        }
+      },
+      onError: (err) {
+        debugPrint('Error listening to links: $err');
+      },
+    );
+  }
+
+  void _handleDeepLink(String link) {
+    debugPrint('Received deep link: $link');
+    final uri = Uri.parse(link);
+
+    String? cardId;
+
+    // Handle infinicard://share/ID
+    if (uri.scheme == 'infinicard' && uri.host == 'share') {
+      cardId = uri.pathSegments.isNotEmpty ? uri.pathSegments.first : null;
+    }
+
+    // Handle https://infinicard.app/c/ID (App Links/Universal Links)
+    if (uri.scheme == 'https' && uri.host == 'infinicard.app') {
+      if (uri.pathSegments.length >= 2 && uri.pathSegments[0] == 'c') {
+        cardId = uri.pathSegments[1];
+      }
+    }
+
+    if (cardId != null) {
+      // Navigate to card import screen
+      Navigator.of(context).pushNamed('/share/$cardId');
+    }
+  }
+
+  @override
+  void dispose() {
+    _linkSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkAuthentication() async {
@@ -101,6 +161,16 @@ class _MyAppState extends State<MyApp> {
         scaffoldBackgroundColor: const Color(0xFF0D0C0F),
       ),
       home: _isAuthenticated ? const Home() : const LoginScreen(),
+      onGenerateRoute: (settings) {
+        // Handle deep links
+        if (settings.name != null && settings.name!.startsWith('/share/')) {
+          final cardId = settings.name!.substring(7); // Remove '/share/'
+          return MaterialPageRoute(
+            builder: (context) => CardImportScreen(cardId: cardId),
+          );
+        }
+        return null;
+      },
       routes: {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),

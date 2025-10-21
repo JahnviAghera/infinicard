@@ -49,7 +49,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     setState(() => _isLoading = true);
-
     try {
       final result = await _apiService.register(
         email: _emailController.text.trim(),
@@ -59,7 +58,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
 
       if (!mounted) return;
-
       if (result['success'] == true) {
         // Registration successful - navigate to home
         Navigator.of(context).pushReplacementNamed('/home');

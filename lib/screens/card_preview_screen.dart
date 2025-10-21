@@ -1,11 +1,8 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'dart:ui' as ui;
-import 'package:infinicard/models/card_model.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:infinicard/utils/vcard_generator.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:infinicard/models/card_model.dart';
+import 'package:infinicard/services/sharing_service.dart';
 
 class CardPreviewScreen extends StatefulWidget {
   final BusinessCard card;
@@ -18,88 +15,25 @@ class CardPreviewScreen extends StatefulWidget {
 
 class _CardPreviewScreenState extends State<CardPreviewScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _flipAnimation;
-  bool _showFront = true;
-  final GlobalKey _cardKey = GlobalKey();
-  bool _isOnlineMode = false; // Toggle between online and offline QR
+  late TabController _tabController;
+  bool _showQR = false;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _flipAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _tabController.dispose();
     super.dispose();
-  }
-
-  void _flipCard() {
-    if (_showFront) {
-      _animationController.forward();
-    } else {
-      _animationController.reverse();
-    }
-    setState(() {
-      _showFront = !_showFront;
-    });
-  }
-
-  Future<void> _shareQR() async {
-    // Generate data based on current mode
-    final qrData = _isOnlineMode
-        ? VCardGenerator.generateOnlineUrl(widget.card)
-        : VCardGenerator.generateVCard(widget.card);
-
-    final shareText = _isOnlineMode
-        ? 'Check out my digital business card!\n\n$qrData'
-        : 'Save my contact:\n\n$qrData';
-
-    await Share.share(
-      shareText,
-      subject: '${widget.card.name} - Digital Business Card',
-    );
-  }
-
-  void _copyLink() {
-    // In a real app, this would be a deep link or web URL
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Link copied to clipboard!')));
-  }
-
-  Future<void> _downloadPNG() async {
-    try {
-      RenderRepaintBoundary boundary =
-          _cardKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
-      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
-      ByteData? byteData = await image.toByteData(
-        format: ui.ImageByteFormat.png,
-      );
-      if (byteData != null) {
-        // Uint8List pngBytes = byteData.buffer.asUint8List();
-        // TODO: Save to gallery or share pngBytes
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Card saved as PNG!')));
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error saving card: $e')));
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final cardColor = Color(widget.card.themeColor);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0D0C0F),
       appBar: AppBar(
@@ -109,369 +43,543 @@ class _CardPreviewScreenState extends State<CardPreviewScreen>
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () => Navigator.pop(context),
-            tooltip: 'Edit',
+            icon: const Icon(Icons.share),
+            onPressed: () =>
+                SharingService().showShareOptions(context, widget.card),
+            tooltip: 'Share Card',
+          ),
+          IconButton(
+            icon: Icon(_showQR ? Icons.credit_card : Icons.qr_code),
+            onPressed: () => setState(() => _showQR = !_showQR),
+            tooltip: _showQR ? 'Show Card' : 'Show QR Code',
           ),
         ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            // Card with flip animation
-            GestureDetector(
-              onTap: _flipCard,
-              child: AnimatedBuilder(
-                animation: _flipAnimation,
-                builder: (context, child) {
-                  final angle = _flipAnimation.value * 3.14159;
-                  final transform = Matrix4.identity()
-                    ..setEntry(3, 2, 0.001)
-                    ..rotateY(angle);
-
-                  return Transform(
-                    transform: transform,
-                    alignment: Alignment.center,
-                    child: angle < 3.14159 / 2
-                        ? _buildCardFront()
-                        : Transform(
-                            transform: Matrix4.identity()..rotateY(3.14159),
-                            alignment: Alignment.center,
-                            child: _buildCardBack(),
-                          ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Tap card to flip',
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-            const SizedBox(height: 32),
-            _buildActionButtons(),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: cardColor,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.grey,
+          tabs: const [
+            Tab(text: 'Preview'),
+            Tab(text: 'Details'),
           ],
         ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // Preview Tab
+          _buildPreviewTab(cardColor),
+          // Details Tab
+          _buildDetailsTab(cardColor),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () =>
+            SharingService().showShareOptions(context, widget.card),
+        backgroundColor: cardColor,
+        icon: const Icon(Icons.share),
+        label: const Text('Share'),
       ),
     );
   }
 
-  Widget _buildCardFront() {
-    return RepaintBoundary(
-      key: _cardKey,
-      child: Container(
-        width: double.infinity,
-        height: 300,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(widget.card.themeColor),
-              Color(widget.card.themeColor).withOpacity(0.7),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Color(widget.card.themeColor).withOpacity(0.4),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
+  Widget _buildPreviewTab(Color cardColor) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          if (_showQR) ...[
+            _buildQRCodeCard(cardColor),
+            const SizedBox(height: 24),
+          ] else ...[
+            _buildBusinessCard(cardColor),
+            const SizedBox(height: 24),
           ],
-        ),
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.card.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.card.title,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.95),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  widget.card.company,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildContactRow(Icons.email, widget.card.email),
-                const SizedBox(height: 6),
-                _buildContactRow(Icons.phone, widget.card.phone),
-                if (widget.card.website.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  _buildContactRow(Icons.language, widget.card.website),
-                ],
-              ],
-            ),
-          ],
-        ),
+
+          // Quick actions
+          _buildQuickActions(cardColor),
+        ],
       ),
     );
   }
 
-  Widget _buildCardBack() {
-    // Generate QR data based on mode
-    final qrData = _isOnlineMode
-        ? VCardGenerator.generateOnlineUrl(widget.card)
-        : VCardGenerator.generateVCard(widget.card);
-
+  Widget _buildBusinessCard(Color cardColor) {
     return Container(
       width: double.infinity,
-      height: 300,
+      padding: const EdgeInsets.all(32),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1A1B),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Color(widget.card.themeColor).withOpacity(0.3),
-          width: 2,
+        gradient: LinearGradient(
+          colors: [cardColor, cardColor.withOpacity(0.7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Color(widget.card.themeColor).withOpacity(0.2),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: cardColor.withOpacity(0.4),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Mode toggle
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF2B292A),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildModeButton('Offline', !_isOnlineMode, false),
-                _buildModeButton('Online', _isOnlineMode, true),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // QR Code
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: QrImageView(
-              data: qrData,
-              version: QrVersions.auto,
-              size: 140,
-              backgroundColor: Colors.white,
-              eyeStyle: QrEyeStyle(
-                eyeShape: QrEyeShape.square,
-                color: Colors.black,
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.card.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (widget.card.title.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.card.title,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
+                    if (widget.card.company.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.card.company,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
+              // Logo placeholder
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.person, color: Colors.white, size: 32),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            _isOnlineMode
-                ? 'Scan to view online'
-                : 'Scan with Google Lens\nto save contact',
-            style: TextStyle(color: Colors.grey[400], fontSize: 12),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          if (widget.card.linkedIn.isNotEmpty || widget.card.github.isNotEmpty)
+          const SizedBox(height: 32),
+
+          // Contact Information
+          if (widget.card.email.isNotEmpty)
+            _buildContactRow(Icons.email, widget.card.email),
+          if (widget.card.phone.isNotEmpty)
+            _buildContactRow(Icons.phone, widget.card.phone),
+          if (widget.card.website.isNotEmpty)
+            _buildContactRow(Icons.language, widget.card.website),
+
+          // Social Links
+          if (widget.card.linkedIn.isNotEmpty ||
+              widget.card.github.isNotEmpty) ...[
+            const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (widget.card.linkedIn.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Color(widget.card.themeColor).withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.link,
-                      color: Color(widget.card.themeColor),
-                      size: 20,
-                    ),
-                  ),
+                  _buildSocialIcon(Icons.work, widget.card.linkedIn),
+                if (widget.card.linkedIn.isNotEmpty &&
+                    widget.card.github.isNotEmpty)
+                  const SizedBox(width: 12),
                 if (widget.card.github.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Color(widget.card.themeColor).withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.code,
-                      color: Color(widget.card.themeColor),
-                      size: 20,
-                    ),
-                  ),
+                  _buildSocialIcon(Icons.code, widget.card.github),
               ],
             ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildContactRow(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.white.withOpacity(0.9), size: 16),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 13,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
             ),
-            overflow: TextOverflow.ellipsis,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildActionButtons() {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.qr_code,
-                label: 'Share QR',
-                onTap: _shareQR,
-              ),
+  Widget _buildSocialIcon(IconData icon, String url) {
+    return InkWell(
+      onTap: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: Colors.white, size: 24),
+      ),
+    );
+  }
+
+  Widget _buildQRCodeCard(Color cardColor) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: cardColor.withOpacity(0.3),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Scan to Add Contact',
+            style: TextStyle(
+              color: cardColor,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.link,
-                label: 'Copy Link',
-                onTap: _copyLink,
-              ),
+          ),
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: cardColor.withOpacity(0.2), width: 2),
+            ),
+            child: QrImageView(
+              data: SharingService().generateQRData(widget.card),
+              version: QrVersions.auto,
+              size: 250,
+              backgroundColor: Colors.white,
+              errorCorrectionLevel: QrErrorCorrectLevel.H,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            widget.card.name,
+            style: TextStyle(
+              color: cardColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (widget.card.company.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              widget.card.company,
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              textAlign: TextAlign.center,
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.image,
-                label: 'Download PNG',
-                onTap: _downloadPNG,
-              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(Color cardColor) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1A1B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2B292A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Quick Actions',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildActionButton(
-                icon: Icons.picture_as_pdf,
-                label: 'Download PDF',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('PDF export coming soon!')),
-                  );
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildActionButton(
+                icon: Icons.email,
+                label: 'Email',
+                color: Colors.orange,
+                onTap: () => SharingService().shareViaEmail(widget.card),
+              ),
+              _buildActionButton(
+                icon: Icons.message,
+                label: 'SMS',
+                color: Colors.green,
+                onTap: () => SharingService().shareViaSMS(widget.card),
+              ),
+              _buildActionButton(
+                icon: Icons.chat,
+                label: 'WhatsApp',
+                color: Colors.teal,
+                onTap: () => SharingService().shareViaWhatsApp(widget.card),
+              ),
+              _buildActionButton(
+                icon: Icons.copy,
+                label: 'Copy',
+                color: cardColor,
+                onTap: () async {
+                  await SharingService().copyToClipboard(widget.card);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Copied to clipboard!'),
+                        backgroundColor: cardColor,
+                      ),
+                    );
+                  }
                 },
               ),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildActionButton({
     required IconData icon,
     required String label,
+    required Color color,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1C1A1B),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF2B292A)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: Color(widget.card.themeColor), size: 28),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
-        ),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildModeButton(String label, bool isActive, bool isOnline) {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _isOnlineMode = isOnline;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? Color(widget.card.themeColor) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.grey[500],
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
+  Widget _buildDetailsTab(Color cardColor) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Contact Information
+          _buildDetailSection('Contact Information', [
+            if (widget.card.email.isNotEmpty)
+              _buildDetailRow('Email', widget.card.email, Icons.email),
+            if (widget.card.phone.isNotEmpty)
+              _buildDetailRow('Phone', widget.card.phone, Icons.phone),
+            if (widget.card.website.isNotEmpty)
+              _buildDetailRow('Website', widget.card.website, Icons.language),
+          ], cardColor),
+          const SizedBox(height: 24),
+
+          // Professional Details
+          _buildDetailSection('Professional Details', [
+            _buildDetailRow('Name', widget.card.name, Icons.person),
+            if (widget.card.title.isNotEmpty)
+              _buildDetailRow('Title', widget.card.title, Icons.work),
+            if (widget.card.company.isNotEmpty)
+              _buildDetailRow('Company', widget.card.company, Icons.business),
+          ], cardColor),
+
+          // Social Links
+          if (widget.card.linkedIn.isNotEmpty ||
+              widget.card.github.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _buildDetailSection('Social Links', [
+              if (widget.card.linkedIn.isNotEmpty)
+                _buildDetailRow(
+                  'LinkedIn',
+                  widget.card.linkedIn,
+                  Icons.work,
+                  isLink: true,
+                ),
+              if (widget.card.github.isNotEmpty)
+                _buildDetailRow(
+                  'GitHub',
+                  widget.card.github,
+                  Icons.code,
+                  isLink: true,
+                ),
+            ], cardColor),
+          ],
+
+          // Metadata
+          const SizedBox(height: 24),
+          _buildDetailSection('Card Details', [
+            _buildDetailRow(
+              'Created',
+              _formatDate(widget.card.createdAt),
+              Icons.calendar_today,
+            ),
+            _buildDetailRow(
+              'Last Updated',
+              _formatDate(widget.card.updatedAt),
+              Icons.update,
+            ),
+          ], cardColor),
+        ],
       ),
     );
+  }
+
+  Widget _buildDetailSection(
+    String title,
+    List<Widget> children,
+    Color cardColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1C1A1B),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2B292A)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(
+    String label,
+    String value,
+    IconData icon, {
+    bool isLink = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2B292A),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Colors.white70, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                const SizedBox(height: 4),
+                isLink
+                    ? InkWell(
+                        onTap: () async {
+                          final uri = Uri.parse(value);
+                          if (await canLaunchUrl(uri)) {
+                            await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
+                            );
+                          }
+                        },
+                        child: Text(
+                          value,
+                          style: TextStyle(
+                            color: Color(widget.card.themeColor),
+                            fontSize: 14,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      )
+                    : Text(
+                        value,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
+                      ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day}/${date.month}/${date.year}';
   }
 }

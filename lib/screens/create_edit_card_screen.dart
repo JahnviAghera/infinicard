@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:infinicard/models/card_model.dart';
-import 'package:infinicard/screens/card_preview_screen.dart';
+import 'package:infinicard/screens/sharing_screen.dart';
 import '../services/api_service.dart';
 
 class CreateEditCardScreen extends StatefulWidget {
@@ -62,21 +62,24 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
   BusinessCard _createCard() {
     return BusinessCard(
       id: widget.card?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      name: _nameController.text,
-      title: _titleController.text,
-      company: _companyController.text,
-      email: _emailController.text,
-      phone: _phoneController.text,
-      website: _websiteController.text,
-      linkedIn: _linkedInController.text,
-      github: _githubController.text,
-      themeColor: _selectedColor.value,
+      name: _nameController.text.trim(),
+      title: _titleController.text.trim(),
+      company: _companyController.text.trim(),
+      email: _emailController.text.trim(),
+      phone: _phoneController.text.trim(),
+      website: _websiteController.text.trim(),
+      linkedIn: _linkedInController.text.trim(),
+      github: _githubController.text.trim(),
+      themeColor: _selectedColor.toARGB32(),
       createdAt: widget.card?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
   }
 
   void _saveCard() async {
+    // Dismiss the keyboard to commit any composing text before validation
+    FocusScope.of(context).unfocus();
+
     if (_formKey.currentState!.validate()) {
       // Show loading indicator
       showDialog(
@@ -86,47 +89,41 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
       );
 
       try {
-        final cardData = {
-          'fullName': _nameController.text,
-          'jobTitle': _titleController.text,
-          'companyName': _companyController.text,
-          'email': _emailController.text.isNotEmpty
-              ? _emailController.text
-              : null,
-          'phone': _phoneController.text.isNotEmpty
-              ? _phoneController.text
-              : null,
-          'website': _websiteController.text.isNotEmpty
-              ? _websiteController.text
-              : null,
-          'color': '#${_selectedColor.value.toRadixString(16).substring(2)}',
-        };
+        final fullName = _nameController.text.trim();
+        final jobTitle = _titleController.text.trim();
+        final companyName = _companyController.text.trim();
+        final email = _emailController.text.trim();
+        final phone = _phoneController.text.trim();
+        final website = _websiteController.text.trim();
+
+        // Build payloads per operation below
 
         Map<String, dynamic> response;
 
         if (widget.card != null) {
-          // Update existing card
-          response = await ApiService().updateCard(widget.card!.id, cardData);
+          // Update existing card: send only fields that have values
+          final updates = <String, dynamic>{
+            if (fullName.isNotEmpty) 'fullName': fullName,
+            if (jobTitle.isNotEmpty) 'jobTitle': jobTitle,
+            if (companyName.isNotEmpty) 'companyName': companyName,
+            if (email.isNotEmpty) 'email': email,
+            if (phone.isNotEmpty) 'phone': phone,
+            if (website.isNotEmpty) 'website': website,
+            'color':
+                '#${_selectedColor.toARGB32().toRadixString(16).substring(2)}',
+          };
+          response = await ApiService().updateCard(widget.card!.id, updates);
         } else {
           // Create new card
           response = await ApiService().createCard(
-            fullName: _nameController.text,
-            jobTitle: _titleController.text.isNotEmpty
-                ? _titleController.text
-                : null,
-            companyName: _companyController.text.isNotEmpty
-                ? _companyController.text
-                : null,
-            email: _emailController.text.isNotEmpty
-                ? _emailController.text
-                : null,
-            phone: _phoneController.text.isNotEmpty
-                ? _phoneController.text
-                : null,
-            website: _websiteController.text.isNotEmpty
-                ? _websiteController.text
-                : null,
-            color: '#${_selectedColor.value.toRadixString(16).substring(2)}',
+            fullName: fullName,
+            jobTitle: jobTitle.isNotEmpty ? jobTitle : null,
+            companyName: companyName.isNotEmpty ? companyName : null,
+            email: email.isNotEmpty ? email : null,
+            phone: phone.isNotEmpty ? phone : null,
+            website: website.isNotEmpty ? website : null,
+            color:
+                '#${_selectedColor.toARGB32().toRadixString(16).substring(2)}',
           );
         }
 
@@ -172,7 +169,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
       final card = _createCard();
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => CardPreviewScreen(card: card)),
+        MaterialPageRoute(builder: (context) => SharingScreen(card: card)),
       );
     }
   }
@@ -194,6 +191,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
               padding: const EdgeInsets.all(24),
               child: Form(
                 key: _formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -216,14 +214,18 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                     const SizedBox(height: 16),
                     _buildTextField(
                       controller: _titleController,
-                      label: 'Title',
+                      label: 'Title *',
                       icon: Icons.work,
+                      validator: (value) =>
+                          value?.isEmpty ?? true ? 'Title is required' : null,
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
                       controller: _companyController,
-                      label: 'Company',
+                      label: 'Company *',
                       icon: Icons.business,
+                      validator: (value) =>
+                          value?.isEmpty ?? true ? 'Company is required' : null,
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
@@ -232,10 +234,13 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                       icon: Icons.email,
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
-                        if (value?.isEmpty ?? true) return null;
-                        if (!RegExp(
-                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                        ).hasMatch(value!)) {
+                        final v = (value ?? '').trim();
+                        if (v.isEmpty) return null; // optional field
+                        // Allow common email formats incl. '+' and long TLDs
+                        final emailRegex = RegExp(
+                          r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$',
+                        );
+                        if (!emailRegex.hasMatch(v)) {
                           return 'Enter a valid email';
                         }
                         return null;
@@ -402,12 +407,12 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  _selectedColor.withOpacity(0.2),
-                  _selectedColor.withOpacity(0.05),
+                  _selectedColor.withValues(alpha: 0.2),
+                  _selectedColor.withValues(alpha: 0.05),
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _selectedColor.withOpacity(0.3)),
+              border: Border.all(color: _selectedColor.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -416,7 +421,10 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                   height: 70,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [_selectedColor, _selectedColor.withOpacity(0.8)],
+                      colors: [
+                        _selectedColor,
+                        _selectedColor.withValues(alpha: 0.8),
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -424,7 +432,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
                       BoxShadow(
-                        color: _selectedColor.withOpacity(0.6),
+                        color: _selectedColor.withValues(alpha: 0.6),
                         blurRadius: 12,
                         spreadRadius: 2,
                       ),
@@ -451,7 +459,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '#${_selectedColor.value.toRadixString(16).substring(2).toUpperCase()}',
+                        '#${_selectedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -461,7 +469,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'RGB(${_selectedColor.red}, ${_selectedColor.green}, ${_selectedColor.blue})',
+                        'RGB(${(_selectedColor.r * 255.0).round() & 0xff}, ${(_selectedColor.g * 255.0).round() & 0xff}, ${(_selectedColor.b * 255.0).round() & 0xff})',
                         style: TextStyle(
                           color: Colors.grey[400],
                           fontSize: 11,
@@ -479,7 +487,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'Copied: #${_selectedColor.value.toRadixString(16).substring(2).toUpperCase()}',
+                          'Copied: #${_selectedColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
                         ),
                         backgroundColor: _selectedColor,
                         duration: const Duration(seconds: 2),
@@ -611,7 +619,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
             final isSelected = _selectedColor == color;
             return Tooltip(
               message:
-                  '#${color.value.toRadixString(16).substring(2).toUpperCase()}',
+                  '#${color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
               decoration: BoxDecoration(
                 color: color,
                 borderRadius: BorderRadius.circular(6),
@@ -629,7 +637,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                   height: 48,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [color, color.withOpacity(0.8)],
+                      colors: [color, color.withValues(alpha: 0.8)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -641,14 +649,14 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: color.withOpacity(0.7),
+                              color: color.withValues(alpha: 0.7),
                               blurRadius: 10,
                               spreadRadius: 2,
                             ),
                           ]
                         : [
                             BoxShadow(
-                              color: color.withOpacity(0.3),
+                              color: color.withValues(alpha: 0.3),
                               blurRadius: 4,
                               spreadRadius: 0,
                             ),
@@ -669,7 +677,11 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
   void _showCustomColorPicker() {
     Color tempColor = _selectedColor;
     final hexController = TextEditingController(
-      text: _selectedColor.value.toRadixString(16).substring(2).toUpperCase(),
+      text: _selectedColor
+          .toARGB32()
+          .toRadixString(16)
+          .substring(2)
+          .toUpperCase(),
     );
 
     showDialog(
@@ -685,7 +697,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                   height: 40,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [tempColor, tempColor.withOpacity(0.7)],
+                      colors: [tempColor, tempColor.withValues(alpha: 0.7)],
                     ),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.white, width: 2),
@@ -715,7 +727,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                       height: 100,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [tempColor, tempColor.withOpacity(0.7)],
+                          colors: [tempColor, tempColor.withValues(alpha: 0.7)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -723,7 +735,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                         border: Border.all(color: Colors.white, width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: tempColor.withOpacity(0.5),
+                            color: tempColor.withValues(alpha: 0.5),
                             blurRadius: 12,
                             spreadRadius: 2,
                           ),
@@ -734,7 +746,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              '#${tempColor.value.toRadixString(16).substring(2).toUpperCase()}',
+                              '#${tempColor.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
@@ -747,7 +759,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'RGB(${tempColor.red}, ${tempColor.green}, ${tempColor.blue})',
+                              'RGB(${(tempColor.r * 255.0).round() & 0xff}, ${(tempColor.g * 255.0).round() & 0xff}, ${(tempColor.b * 255.0).round() & 0xff})',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -850,17 +862,18 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                     const SizedBox(height: 12),
                     _buildEnhancedSlider(
                       'Red',
-                      tempColor.red.toDouble(),
+                      ((tempColor.r * 255.0).round() & 0xff).toDouble(),
                       Colors.red,
                       (value) {
                         setDialogState(() {
                           tempColor = Color.fromARGB(
                             255,
                             value.toInt(),
-                            tempColor.green,
-                            tempColor.blue,
+                            (tempColor.g * 255.0).round() & 0xff,
+                            (tempColor.b * 255.0).round() & 0xff,
                           );
-                          hexController.text = tempColor.value
+                          hexController.text = tempColor
+                              .toARGB32()
                               .toRadixString(16)
                               .substring(2)
                               .toUpperCase();
@@ -870,17 +883,18 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                     const SizedBox(height: 12),
                     _buildEnhancedSlider(
                       'Green',
-                      tempColor.green.toDouble(),
+                      ((tempColor.g * 255.0).round() & 0xff).toDouble(),
                       Colors.green,
                       (value) {
                         setDialogState(() {
                           tempColor = Color.fromARGB(
                             255,
-                            tempColor.red,
+                            (tempColor.r * 255.0).round() & 0xff,
                             value.toInt(),
-                            tempColor.blue,
+                            (tempColor.b * 255.0).round() & 0xff,
                           );
-                          hexController.text = tempColor.value
+                          hexController.text = tempColor
+                              .toARGB32()
                               .toRadixString(16)
                               .substring(2)
                               .toUpperCase();
@@ -890,17 +904,18 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                     const SizedBox(height: 12),
                     _buildEnhancedSlider(
                       'Blue',
-                      tempColor.blue.toDouble(),
+                      ((tempColor.b * 255.0).round() & 0xff).toDouble(),
                       Colors.blue,
                       (value) {
                         setDialogState(() {
                           tempColor = Color.fromARGB(
                             255,
-                            tempColor.red,
-                            tempColor.green,
+                            (tempColor.r * 255.0).round() & 0xff,
+                            (tempColor.g * 255.0).round() & 0xff,
                             value.toInt(),
                           );
-                          hexController.text = tempColor.value
+                          hexController.text = tempColor
+                              .toARGB32()
                               .toRadixString(16)
                               .substring(2)
                               .toUpperCase();
@@ -928,7 +943,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -940,7 +956,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -952,7 +969,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -964,7 +982,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -976,7 +995,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -988,7 +1008,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -1000,7 +1021,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -1012,7 +1034,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -1024,7 +1047,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -1036,7 +1060,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -1048,7 +1073,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -1060,7 +1086,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                           setDialogState,
                           (color) {
                             tempColor = color;
-                            hexController.text = color.value
+                            hexController.text = color
+                                .toARGB32()
                                 .toRadixString(16)
                                 .substring(2)
                                 .toUpperCase();
@@ -1121,7 +1148,9 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
           color: color,
           borderRadius: BorderRadius.circular(6),
           border: Border.all(
-            color: isSelected ? Colors.white : Colors.white.withOpacity(0.3),
+            color: isSelected
+                ? Colors.white
+                : Colors.white.withValues(alpha: 0.3),
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -1195,8 +1224,8 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
             data: SliderThemeData(
               activeTrackColor: sliderColor,
               thumbColor: sliderColor,
-              inactiveTrackColor: sliderColor.withOpacity(0.3),
-              overlayColor: sliderColor.withOpacity(0.2),
+              inactiveTrackColor: sliderColor.withValues(alpha: 0.3),
+              overlayColor: sliderColor.withValues(alpha: 0.2),
             ),
             child: Slider(
               value: value,
@@ -1216,14 +1245,14 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [_selectedColor, _selectedColor.withOpacity(0.7)],
+          colors: [_selectedColor, _selectedColor.withValues(alpha: 0.7)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: _selectedColor.withOpacity(0.3),
+            color: _selectedColor.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -1246,7 +1275,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                 ? 'Your Title'
                 : _titleController.text,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 16,
             ),
           ),
@@ -1256,7 +1285,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
                 ? 'Company'
                 : _companyController.text,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
               fontSize: 14,
             ),
           ),

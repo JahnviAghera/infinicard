@@ -1,8 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 
 class ApiService {
+  // Health check configuration
+  Timer? _healthCheckTimer;
+  static const Duration _healthCheckInterval = Duration(seconds: 30);
+  bool _isHealthy = true;
+
   /// Get user info (profile)
   Future<Map<String, dynamic>?> getUserInfo() async {
     final result = await getProfile();
@@ -45,6 +51,59 @@ class ApiService {
     return headers;
   }
 
+  /// Check API health
+  Future<bool> checkHealth() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/health'), headers: _getHeaders())
+          .timeout(const Duration(seconds: 5));
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Health check failed: $e');
+      return false;
+    }
+  }
+
+  /// Start periodic health checks
+  void _startHealthCheck() {
+    _healthCheckTimer?.cancel();
+    _healthCheckTimer = Timer.periodic(_healthCheckInterval, (timer) async {
+      if (_accessToken != null) {
+        final healthy = await checkHealth();
+
+        if (!healthy && _isHealthy) {
+          // Connection lost
+          _isHealthy = false;
+          print('Connection lost, attempting to reconnect...');
+        } else if (healthy && !_isHealthy) {
+          // Connection restored, re-authenticate
+          _isHealthy = true;
+          print('Connection restored, re-authenticating...');
+          await _reAuthenticate();
+        }
+      }
+    });
+  }
+
+  /// Re-authenticate user if tokens exist
+  Future<void> _reAuthenticate() async {
+    try {
+      if (_accessToken != null) {
+        // Try to get profile to verify token is still valid
+        final result = await getProfile();
+        if (result['success'] == true) {
+          print('Re-authentication successful');
+        } else {
+          print('Token invalid, user needs to login again');
+          await clearTokens();
+        }
+      }
+    } catch (e) {
+      print('Re-authentication failed: $e');
+    }
+  }
+
   // Initialize - Load saved tokens
   Future<bool> initialize() async {
     try {
@@ -57,6 +116,9 @@ class ApiService {
         final userEmail = prefs.getString(_userEmailKey);
         final userName = prefs.getString(_userNameKey);
         _currentUser = {'id': userId, 'email': userEmail, 'username': userName};
+
+        // Start health monitoring
+        _startHealthCheck();
 
         return true;
       }
@@ -85,6 +147,9 @@ class ApiService {
       _accessToken = accessToken;
       _refreshToken = refreshToken;
       _currentUser = user;
+
+      // Start health monitoring after successful login
+      _startHealthCheck();
     } catch (e) {
       print('Error saving tokens: $e');
     }
@@ -93,6 +158,11 @@ class ApiService {
   // Clear tokens (logout)
   Future<void> clearTokens() async {
     try {
+      // Stop health checks
+      _healthCheckTimer?.cancel();
+      _healthCheckTimer = null;
+      _isHealthy = true;
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_accessTokenKey);
       await prefs.remove(_refreshTokenKey);
@@ -113,6 +183,14 @@ class ApiService {
 
   // Get current user
   Map<String, dynamic>? get currentUser => _currentUser;
+
+  // Get health status
+  bool get isHealthy => _isHealthy;
+
+  // Dispose timer when no longer needed
+  void dispose() {
+    _healthCheckTimer?.cancel();
+  }
 
   // ========== AUTHENTICATION ENDPOINTS ==========
 
@@ -341,6 +419,30 @@ class ApiService {
     }
   }
 
+  /// Get public card by ID (no authentication required)
+  /// This is used for sharing - anyone with the link can view the card
+  Future<Map<String, dynamic>> getPublicCard(String id) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/cards/public/$id'),
+        headers: _getHeaders(includeAuth: false),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to get card',
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: $e'};
+    }
+  }
+
   /// Create business card
   Future<Map<String, dynamic>> createCard({
     required String fullName,
@@ -392,6 +494,10 @@ class ApiService {
     String id,
     Map<String, dynamic> updates,
   ) async {
+    if (updates.isEmpty) {
+      return {'success': false, 'message': 'No updates provided'};
+    }
+
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/cards/$id'),
