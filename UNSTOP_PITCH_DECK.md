@@ -39,16 +39,16 @@ Differentiators:
 
 ```mermaid
 flowchart TD
-    A[Open App] --> B{New or Returning?}
-    B -- New --> C[Onboarding & Create Card]
-    B -- Returning --> D[Home Dashboard]
-    C --> D
-    D --> E[Share (QR/NFC/Link/Event)]
-    D --> F[Scan/OCR]
-    D --> G[Discover]
-    D --> H[Contacts]
-    D --> I[Sustainability]
-    D --> J[Enterprise]
+  A[Open App] --> B{New or Returning?};
+  B -- New --> C[Onboarding & Create Card];
+  B -- Returning --> D[Home Dashboard];
+  C --> D;
+  D --> E[Share: QR • NFC • Link • Event];
+  D --> F[Scan / OCR];
+  D --> G[Discover];
+  D --> H[Contacts];
+  D --> I[Sustainability];
+  D --> J[Enterprise];
 ```
 
 ---

@@ -32,25 +32,25 @@ Optional artifacts: Wireframes and diagrams are referenced below; visuals can be
 
 ```mermaid
 flowchart TD
-    A[Open App] --> B{New or Returning?}
-    B -- New --> C[Onboarding & Create Card]
-    B -- Returning --> D[Home Dashboard]
-    C --> D
-    D --> E[Share Card (QR/NFC/Link/Event)]
-    D --> F[Scan/OCR Physical Card]
-    D --> G[Discover Professionals]
-    D --> H[Contacts & Follow-ups]
-    D --> I[Sustainability Dashboard]
-    D --> J[Enterprise/Team Analytics]
-    E --> K{Sharing Type}
-    K -- QR --> L[Public/Basic View]
-    K -- NFC --> M[Medium Info View]
-    K -- Link --> N[Custom Link Policy]
-    K -- Event --> O[Event Directory Listing]
-    O --> P[Mass Contact Sync]
-    F --> H
-    H --> Q[Activity Log & Notifications]
-    I --> R[Impact Reports & Certificates]
+  A[Open App] --> B{New or Returning?};
+  B -- New --> C[Onboarding & Create Card];
+  B -- Returning --> D[Home Dashboard];
+  C --> D;
+  D --> E[Share: QR • NFC • Link • Event];
+  D --> F[Scan / OCR Physical Card];
+  D --> G[Discover Professionals];
+  D --> H[Contacts & Follow-ups];
+  D --> I[Sustainability Dashboard];
+  D --> J[Enterprise / Team Analytics];
+  E --> K{Sharing Type};
+  K -- QR --> L[Public / Basic View];
+  K -- NFC --> M[Medium Info View];
+  K -- Link --> N[Custom Link Policy];
+  K -- Event --> O[Event Directory Listing];
+  O --> P[Mass Contact Sync];
+  F --> H;
+  H --> Q[Activity Log & Notifications];
+  I --> R[Impact Reports & Certificates];
 ```
 
 ### 3.2 High-Level Architecture (Mermaid)
