@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:uni_links/uni_links.dart';
+import 'package:app_links/app_links.dart';
 
 // Import all new screens
 import 'package:infinicard/screens/my_cards_screen.dart';
@@ -51,8 +51,9 @@ class _MyAppState extends State<MyApp> {
   final _apiService = ApiService();
   bool _isLoading = true;
   bool _isAuthenticated = false;
-  StreamSubscription? _linkSubscription;
+  StreamSubscription<Uri>? _linkSubscription;
   String? _initialLink;
+  AppLinks? _appLinks; // Singleton instance for handling app/deep links
 
   @override
   void initState() {
@@ -62,26 +63,21 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _initDeepLinks() async {
-    // Handle initial link if app was opened from a link
-    try {
-      _initialLink = await getInitialLink();
-      if (_initialLink != null) {
-        _handleDeepLink(_initialLink!);
-      }
-    } catch (e) {
-      debugPrint('Error getting initial link: $e');
-    }
+    // Initialize AppLinks (singleton)
+    _appLinks ??= AppLinks();
 
-    // Handle links while app is already running
-    _linkSubscription = linkStream.listen(
-      (String? link) {
-        if (link != null) {
-          _handleDeepLink(link);
-        }
+    // Subscribe to all events (initial link and subsequent links)
+    _linkSubscription = _appLinks!.uriLinkStream.listen(
+      (Uri uri) {
+        final link = uri.toString();
+        // Persist the very first link observed as initial
+        _initialLink ??= link;
+        _handleDeepLink(link);
       },
       onError: (err) {
-        debugPrint('Error listening to links: $err');
+        debugPrint('Error listening to app links: $err');
       },
+      cancelOnError: false,
     );
   }
 

@@ -39,7 +39,7 @@ dependencies:
   nfc_manager: ^4.0.2
   http: ^1.1.0
   lucide_icons_flutter:
-  uni_links: ^0.5.1
+  app_links: ^6.0.0
 #  flutter_nearby_connections: ^1.1.2
   camera: ^0.11.2
   tesseract_ocr: ^0.5.0
