@@ -73,6 +73,7 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+    - assets/
 #    - assets/ocr_model.tflite
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -82,11 +82,11 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0D0C0F), Color(0xFF1C1A1B), Color(0xFF1E88E5)],
-          ),
+          // gradient: LinearGradient(
+          //   begin: Alignment.topLeft,
+          //   end: Alignment.bottomRight,
+          //   colors: [Color(0xFF0D0C0F), Color(0xFF1C1A1B), Color(0xFF1E88E5)],
+          // ),
         ),
         child: SafeArea(
           child: Center(
@@ -99,28 +99,33 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Logo and Title
-                    Icon(
-                      Icons.credit_card_rounded,
-                      size: 80,
-                      color: Theme.of(context).colorScheme.primary,
+                    // Icon(
+                    //   Icons.credit_card_rounded,
+                    //   size: 80,
+                    //   color: Theme.of(context).colorScheme.primary,
+                    // ),
+                    Image.asset(
+                      'assets/logo2.png',
+                      width: 100,
+                      height: 100,
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Infinicard',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineLarge
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
+                    // const SizedBox(height: 16),
+                    // Text(
+                    //   'Infinicard',
+                    //   textAlign: TextAlign.center,
+                    //   style: Theme.of(context).textTheme.headlineLarge
+                    //       ?.copyWith(
+                    //         color: Colors.white,
+                    //         fontWeight: FontWeight.bold,
+                    //       ),
+                    // ),
                     const SizedBox(height: 8),
                     Text(
                       'Digital Business Card Manager',
                       textAlign: TextAlign.center,
                       style: Theme.of(
                         context,
-                      ).textTheme.bodyLarge?.copyWith(color: Colors.white70),
+                      ).textTheme.bodyLarge?.copyWith(color: Colors.white),
                     ),
                     const SizedBox(height: 48),
 
@@ -233,21 +238,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _isLoading ? null : _handleLogin,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Colors.white,
+                        backgroundColor: Color(0xFF64AF56),
+                        // foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        elevation: 8,
+                        elevation: 0,
                       ),
                       child: _isLoading
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
+                              // child: CircularProgressIndicator(
+                              //   strokeWidth: 2,
+                              //   color: Colors.white,
+                              // ),
                             )
                           : const Text(
                               'Login',
