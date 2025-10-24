@@ -1,4 +1,3 @@
----
 # Cover Page
 
 Project Title: Infinicard — Sustainable Digital Business Cards & Networking
