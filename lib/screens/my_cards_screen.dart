@@ -44,11 +44,19 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _searchController.removeListener(_filterCards);
+    _searchController.dispose();
+    _pageController.dispose();
+    super.dispose();
+  }
+
   // Initialize data with proper order
   Future<void> _initialize() async {
     await _loadCustomOrder(); // Load saved card order first
     await _loadCachedCards(); // Load offline cache
-    await _fetchCards(); // Then fetch from API
+    await _fetchCards(); // Then fetch from API (if available)
   }
 
   // Load custom card order from SharedPreferences
@@ -95,7 +103,7 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
                 (json) => BusinessCard.fromJson(json as Map<String, dynamic>),
               )
               .toList();
-          _filteredCards = _cards;
+          _filteredCards = List.from(_cards);
           _sortCards(); // Apply custom order if exists
         });
       }
@@ -114,296 +122,294 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
     }
   }
 
+  // Basic fetch implementation (placeholder - extend to call ApiService if available)
   Future<void> _fetchCards() async {
     try {
-      final response = await ApiService().getCards();
-      if (response['success'] == true && response['data'] != null) {
-        final dynamic rawData = response['data'];
+      final api = ApiService();
+      final result = await api.getCards();
 
-        // Handle both List and other possible types
-        if (rawData is List) {
-          final List<Map<String, dynamic>> cardsData = rawData
-              .map((e) => e as Map<String, dynamic>)
+      if (result['success'] == true && result['data'] is List) {
+        final List<dynamic> dataList = result['data'];
+        setState(() {
+          _cards = dataList
+              .map((m) => BusinessCard.fromJson(m as Map<String, dynamic>))
               .toList();
+          _filteredCards = List.from(_cards);
+        });
 
-          // Save to cache for offline use
-          await _saveCardsToCache(cardsData);
-
-          setState(() {
-            _cards = cardsData
-                .map((json) => BusinessCard.fromJson(json))
-                .toList();
-            _filteredCards = _cards;
-            _sortCards(); // Apply custom order if exists
-          });
-        }
+        // Cache fetched cards
+        try {
+          final cardsData = _cards.map((c) => c.toJson()).toList();
+          await _saveCardsToCache(cardsData.cast<Map<String, dynamic>>());
+        } catch (_) {}
+      } else {
+        // If API returned no data or failed, ensure sorting/filtering still applied
+        print('No cards returned from API or failed: ${result['message']}');
       }
     } catch (e) {
-      // If API fails, cached data is already loaded from _loadCachedCards
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Using offline data. Network error: $e'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
+      print('Error fetching cards from API: $e');
+    } finally {
+      _sortCards();
     }
   }
 
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _pageController.dispose();
-    super.dispose();
-  }
-
+  // Filter cards by search query
   void _filterCards() {
-    final query = _searchController.text.toLowerCase();
+    final query = _searchController.text.trim().toLowerCase();
     setState(() {
-      _filteredCards = _cards.where((card) {
-        return card.name.toLowerCase().contains(query) ||
-            card.company.toLowerCase().contains(query) ||
-            card.title.toLowerCase().contains(query);
-      }).toList();
-      _sortCards();
+      if (query.isEmpty) {
+        _filteredCards = List.from(_cards);
+      } else {
+        _filteredCards = _cards.where((c) {
+          final name = c.name.toLowerCase();
+          final title = c.title.toLowerCase();
+          final company = c.company.toLowerCase();
+          return name.contains(query) ||
+              title.contains(query) ||
+              company.contains(query);
+        }).toList();
+      }
+      _currentPage = 0;
+      _pageController.jumpToPage(0);
     });
   }
 
+  // Sort cards according to _sortBy and _customOrder
   void _sortCards() {
-    if (_sortBy == 'Custom' && _customOrder.isNotEmpty) {
-      // Apply custom order
-      _filteredCards.sort((a, b) {
-        final aIndex = _customOrder.indexOf(a.id);
-        final bIndex = _customOrder.indexOf(b.id);
-        // Cards not in custom order go to the end
-        if (aIndex == -1 && bIndex == -1) return 0;
-        if (aIndex == -1) return 1;
-        if (bIndex == -1) return -1;
-        return aIndex.compareTo(bIndex);
-      });
-    } else if (_sortBy == 'Date') {
-      _filteredCards.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    } else if (_sortBy == 'Name') {
-      _filteredCards.sort((a, b) => a.name.compareTo(b.name));
-    } else if (_sortBy == 'Company') {
-      _filteredCards.sort((a, b) => a.company.compareTo(b.company));
-    }
+    setState(() {
+      if (_sortBy == 'Custom' && _customOrder.isNotEmpty) {
+        final map = {for (var c in _cards) c.id: c};
+        final ordered = <BusinessCard>[];
+        for (var id in _customOrder) {
+          if (map.containsKey(id)) {
+            ordered.add(map[id]!);
+            map.remove(id);
+          }
+        }
+        // append any remaining cards not in custom order
+        ordered.addAll(map.values);
+        _cards = ordered;
+      } else if (_sortBy == 'Name') {
+        _cards.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+      } else if (_sortBy == 'Company') {
+        _cards.sort(
+          (a, b) => a.company.toLowerCase().compareTo(b.company.toLowerCase()),
+        );
+      } else {
+        // Default Date sort: if BusinessCard has createdAt, sort by it descending
+        try {
+          DateTime _parseDate(dynamic value) {
+            if (value == null) return DateTime(1970);
+            if (value is DateTime) return value;
+            if (value is String) {
+              try {
+                return DateTime.parse(value);
+              } catch (_) {
+                return DateTime(1970);
+              }
+            }
+            return DateTime(1970);
+          }
+
+          _cards.sort((a, b) {
+            final aDate = _parseDate(a.createdAt);
+            final bDate = _parseDate(b.createdAt);
+            return bDate.compareTo(aDate);
+          });
+        } catch (_) {
+          // fallback: no-op
+        }
+      }
+
+      // apply search filter
+      final query = _searchController.text.trim().toLowerCase();
+      if (query.isEmpty) {
+        _filteredCards = List.from(_cards);
+      } else {
+        _filteredCards = _cards.where((c) {
+          final name = c.name.toLowerCase();
+          final title = c.title.toLowerCase();
+          final company = c.company.toLowerCase();
+          return name.contains(query) ||
+              title.contains(query) ||
+              company.contains(query);
+        }).toList();
+      }
+
+      // ensure current page is within bounds
+      if (_currentPage >= _filteredCards.length) {
+        _currentPage = _filteredCards.isEmpty ? 0 : _filteredCards.length - 1;
+        _pageController.jumpToPage(_currentPage);
+      }
+    });
   }
 
-  // Reorder cards in carousel
+  // Reorder card (move from oldIndex to newIndex)
   void _reorderCard(int oldIndex, int newIndex) {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
+    if (oldIndex < 0 || oldIndex >= _filteredCards.length) return;
+    if (newIndex < 0 || newIndex >= _filteredCards.length) return;
+
     setState(() {
       final card = _filteredCards.removeAt(oldIndex);
       _filteredCards.insert(newIndex, card);
+
+      // Update the master list _cards to reflect new order:
+      // Build a new order by taking ids from filtered list in order, then appending other cards
+      final idsInFiltered = _filteredCards.map((c) => c.id).toSet();
+      final newCardsOrder = <BusinessCard>[];
+      newCardsOrder.addAll(_filteredCards);
+      newCardsOrder.addAll(_cards.where((c) => !idsInFiltered.contains(c.id)));
+      _cards = newCardsOrder;
+
       // Update custom order
-      _customOrder = _filteredCards.map((c) => c.id).toList();
-      _sortBy = 'Custom'; // Switch to custom sort
+      _customOrder = _cards.map((c) => c.id).toList();
+      _saveCustomOrder();
     });
-    _saveCustomOrder();
-
-    // Update page controller if needed
-    if (_currentPage == oldIndex) {
-      _currentPage = newIndex;
-      _pageController.jumpToPage(newIndex);
-    }
   }
 
-  void _createCard() async {
-    final result = await Navigator.push(
+  Future<void> _createCard() async {
+    await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const CreateEditCardScreen()),
+      MaterialPageRoute(builder: (_) => const CreateEditCardScreen()),
     );
-    if (result != null && result is BusinessCard) {
-      // Refresh cards from backend
-      await _fetchCards();
-    }
+    await _fetchCards();
   }
 
-  void _editCard(BusinessCard card) async {
-    final result = await Navigator.push(
+  Future<void> _editCard(BusinessCard card) async {
+    await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => CreateEditCardScreen(card: card)),
+      MaterialPageRoute(builder: (_) => CreateEditCardScreen(card: card)),
     );
-    if (result != null && result is BusinessCard) {
-      // Refresh cards from backend
-      await _fetchCards();
-    }
+    await _fetchCards();
   }
 
-  void _shareCard(BusinessCard card) {
-    Navigator.push(
+  Future<void> _shareCard(BusinessCard card) async {
+    await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => SharingScreen(card: card)),
+      MaterialPageRoute(builder: (_) => SharingScreen(card: card)),
     );
   }
 
-  void _deleteCard(BusinessCard card) async {
-    showDialog(
+  Future<void> _deleteCard(BusinessCard card) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1C1A1B),
-        title: const Text('Delete Card', style: TextStyle(color: Colors.white)),
-        content: Text(
-          'Are you sure you want to delete ${card.name}\'s card?',
-          style: const TextStyle(color: Colors.white70),
-        ),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete card'),
+        content: const Text('Are you sure you want to delete this card?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await ApiService().deleteCard(card.id);
-                await _fetchCards();
-                if (mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('Card deleted')));
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to delete card: $e')),
-                  );
-                }
-              }
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
           ),
         ],
       ),
     );
+
+    if (confirmed == true) {
+      setState(() {
+        _cards.removeWhere((c) => c.id == card.id);
+        _filteredCards.removeWhere((c) => c.id == card.id);
+        _customOrder.removeWhere((id) => id == card.id);
+        _saveCustomOrder();
+      });
+      try {
+        final cardsData = _cards.map((c) => c.toJson()).toList();
+        await _saveCardsToCache(cardsData.cast<Map<String, dynamic>>());
+      } catch (_) {}
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0C0F),
-      body: SafeArea(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: const Text(
+          'My Cards',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black),
+            onPressed: _fetchCards,
+          ),
+          IconButton(
+            icon: Icon(
+              _isReorderMode ? Icons.check : Icons.swap_vert,
+              color: _isReorderMode ? Colors.green : Colors.black,
+            ),
+            tooltip: _isReorderMode ? 'Done' : 'Reorder',
+            onPressed: () {
+              setState(() {
+                _isReorderMode = !_isReorderMode;
+              });
+            },
+          ),
+          IconButton(
+            icon: Icon(
+              _isGridView ? Icons.view_carousel_outlined : Icons.grid_view,
+              color: Colors.black,
+            ),
+            onPressed: () {
+              setState(() {
+                _isGridView = !_isGridView;
+              });
+            },
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort, color: Colors.black),
+            color: Colors.white,
+            onSelected: (value) {
+              setState(() {
+                _sortBy = value;
+                _sortCards();
+              });
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 'Custom', child: Text('Custom Order')),
+              const PopupMenuItem(value: 'Date', child: Text('Sort by Date')),
+              const PopupMenuItem(value: 'Name', child: Text('Sort by Name')),
+              const PopupMenuItem(
+                value: 'Company',
+                child: Text('Sort by Company'),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'My Cards',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.refresh,
-                              color: Colors.white,
-                            ),
-                            onPressed: _fetchCards,
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              _isReorderMode ? Icons.check : Icons.swap_vert,
-                              color: _isReorderMode
-                                  ? Colors.green
-                                  : Colors.white,
-                            ),
-                            tooltip: _isReorderMode ? 'Done' : 'Reorder',
-                            onPressed: () {
-                              setState(() {
-                                _isReorderMode = !_isReorderMode;
-                              });
-                            },
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              _isGridView ? Icons.list : Icons.grid_view,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _isGridView = !_isGridView;
-                              });
-                            },
-                          ),
-                          PopupMenuButton<String>(
-                            icon: const Icon(Icons.sort, color: Colors.white),
-                            color: const Color(0xFF1C1A1B),
-                            onSelected: (value) {
-                              setState(() {
-                                _sortBy = value;
-                                _sortCards();
-                              });
-                            },
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(
-                                value: 'Custom',
-                                child: Text(
-                                  'Custom Order',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'Date',
-                                child: Text(
-                                  'Sort by Date',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'Name',
-                                child: Text(
-                                  'Sort by Name',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'Company',
-                                child: Text(
-                                  'Sort by Company',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _searchController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Search cards...',
-                      hintStyle: TextStyle(color: Colors.grey[400]),
-                      prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
-                      filled: true,
-                      fillColor: const Color(0xFF1C1A1B),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ],
+            const SizedBox(height: 8),
+            TextField(
+              controller: _searchController,
+              style: const TextStyle(color: Colors.black87),
+              decoration: InputDecoration(
+                hintText: 'Search cards...',
+                hintStyle: const TextStyle(color: Color(0xFF696969)),
+                prefixIcon: Icon(Icons.search, color: Colors.grey[700]),
+                filled: true,
+                fillColor: const Color(0xFFF1F1F1),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
-            // Cards
+            const SizedBox(height: 12),
             Expanded(
               child: _filteredCards.isEmpty
                   ? Center(
@@ -446,7 +452,7 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
       padding: const EdgeInsets.all(8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 8,
+        crossAxisSpacing: 2,
         mainAxisSpacing: 8,
         childAspectRatio: 0.75,
       ),
@@ -464,184 +470,200 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
   }
 
   Widget _buildCarouselView() {
-    return Column(
-      children: [
-        // Carousel indicator
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                '${_currentPage + 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                ' / ${_filteredCards.length}',
-                style: TextStyle(color: Colors.grey[500], fontSize: 16),
-              ),
-            ],
-          ),
-        ),
+    // Center the indicator, carousel and swipe hint vertically
+    final size = MediaQuery.of(context).size;
+    const baseHeight = 1752;
+    final heightScale = size.height / baseHeight;
+    final baseCardHeight = 500 * heightScale;
 
-        // Reorder mode hint
-        if (_isReorderMode)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Indicator
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.info_outline, color: Colors.green, size: 16),
+                Text(
+                  '${_currentPage + 1}',
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(width: 8),
                 Text(
-                  'Use arrows to reorder cards',
-                  style: TextStyle(color: Colors.green[300], fontSize: 12),
+                  ' / ${_filteredCards.length}',
+                  style: TextStyle(color: Colors.grey[700], fontSize: 16),
                 ),
               ],
             ),
           ),
 
-        // Carousel
-        Expanded(
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: _filteredCards.length,
-            onPageChanged: (index) {
-              setState(() {
-                _currentPage = index;
-              });
-            },
-            itemBuilder: (context, index) {
-              final card = _filteredCards[index];
-              final isCurrentPage = index == _currentPage;
+          // Reorder hint
+          if (_isReorderMode)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.green, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Use arrows to reorder cards',
+                    style: TextStyle(color: Colors.green[300], fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
 
-              // Get or create GlobalKey for this card
-              if (!_flipCardKeys.containsKey(card.id)) {
-                _flipCardKeys[card.id] = GlobalKey<_FlipCardWidgetState>();
-              }
+          // Carousel (fixed height so the column can be centered)
+          SizedBox(
+            height: baseCardHeight + 100,
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: _filteredCards.length,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentPage = index;
+                });
+              },
+              itemBuilder: (context, index) {
+                final card = _filteredCards[index];
+                final isCurrentPage = index == _currentPage;
 
-              return AnimatedBuilder(
-                animation: _pageController,
-                builder: (context, child) {
-                  double value = 1.0;
-                  if (_pageController.position.haveDimensions) {
-                    value = _pageController.page! - index;
-                    value = (1 - (value.abs() * 0.3)).clamp(0.7, 1.0);
-                  }
+                // Get or create GlobalKey for this card
+                if (!_flipCardKeys.containsKey(card.id)) {
+                  _flipCardKeys[card.id] = GlobalKey<_FlipCardWidgetState>();
+                }
 
-                  return Center(
-                    child: SizedBox(
-                      height: Curves.easeInOut.transform(value) * 500,
-                      child: child,
-                    ),
-                  );
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Stack(
-                    children: [
-                      FlipCardWidget(
-                        key: _flipCardKeys[card.id],
-                        card: card,
-                        onEdit: () => _editCard(card),
-                        onShare: () => _shareCard(card),
-                        onDelete: () => _deleteCard(card),
-                        isActive: isCurrentPage && !_isReorderMode,
+                return AnimatedBuilder(
+                  animation: _pageController,
+                  builder: (context, child) {
+                    double value = 1.0;
+                    if (_pageController.position.haveDimensions) {
+                      value = _pageController.page! - index;
+                      value = (1 - (value.abs() * 0.3)).clamp(0.7, 1.0);
+                    }
+                    return Center(
+                      child: SizedBox(
+                        height:
+                            Curves.easeInOut.transform(value) * baseCardHeight,
+                        child: child,
                       ),
-                      // Reorder controls
-                      if (_isReorderMode && isCurrentPage)
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                // Move left
-                                if (index > 0)
-                                  CircleAvatar(
-                                    radius: 32,
-                                    backgroundColor: Colors.white,
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.arrow_back,
-                                        size: 32,
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Stack(
+                      children: [
+                        FlipCardWidget(
+                          key: _flipCardKeys[card.id],
+                          card: card,
+                          onEdit: () => _editCard(card),
+                          onShare: () => _shareCard(card),
+                          onDelete: () => _deleteCard(card),
+                          isActive: isCurrentPage && !_isReorderMode,
+                        ),
+                        // Reorder controls
+                        if (_isReorderMode && isCurrentPage)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  // Move left
+                                  if (index > 0)
+                                    CircleAvatar(
+                                      radius: 32,
+                                      backgroundColor: Colors.white,
+                                      child: IconButton(
+                                        icon: const Icon(
+                                          Icons.arrow_back,
+                                          size: 32,
+                                        ),
+                                        color: Colors.black,
+                                        onPressed: () {
+                                          _reorderCard(index, index - 1);
+                                          _pageController.previousPage(
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            curve: Curves.easeInOut,
+                                          );
+                                        },
                                       ),
-                                      color: Colors.black,
-                                      onPressed: () {
-                                        _reorderCard(index, index - 1);
-                                        _pageController.previousPage(
-                                          duration: const Duration(
-                                            milliseconds: 300,
-                                          ),
-                                          curve: Curves.easeInOut,
-                                        );
-                                      },
                                     ),
-                                  ),
-                                // Move right
-                                if (index < _filteredCards.length - 1)
-                                  CircleAvatar(
-                                    radius: 32,
-                                    backgroundColor: Colors.white,
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.arrow_forward,
-                                        size: 32,
+                                  // Move right
+                                  if (index < _filteredCards.length - 1)
+                                    CircleAvatar(
+                                      radius: 32,
+                                      backgroundColor: Colors.white,
+                                      child: IconButton(
+                                        icon: const Icon(
+                                          Icons.arrow_forward,
+                                          size: 32,
+                                        ),
+                                        color: Colors.black,
+                                        onPressed: () {
+                                          _reorderCard(index, index + 1);
+                                          _pageController.nextPage(
+                                            duration: const Duration(
+                                              milliseconds: 300,
+                                            ),
+                                            curve: Curves.easeInOut,
+                                          );
+                                        },
                                       ),
-                                      color: Colors.black,
-                                      onPressed: () {
-                                        _reorderCard(index, index + 1);
-                                        _pageController.nextPage(
-                                          duration: const Duration(
-                                            milliseconds: 300,
-                                          ),
-                                          curve: Curves.easeInOut,
-                                        );
-                                      },
                                     ),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
 
-        // Swipe hint
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.arrow_back_ios, color: Colors.grey[600], size: 16),
-              const SizedBox(width: 8),
-              Text(
-                'Swipe to browse',
-                style: TextStyle(color: Colors.grey[600], fontSize: 14),
-              ),
-              const SizedBox(width: 8),
-              Icon(Icons.arrow_forward_ios, color: Colors.grey[600], size: 16),
-            ],
+          // Swipe hint
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.arrow_back_ios, color: Colors.grey[600], size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'Swipe to browse',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 14),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  color: Colors.grey[600],
+                  size: 16,
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -890,15 +912,6 @@ class _FlipCardWidgetState extends State<FlipCardWidget>
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.person, color: Colors.white, size: 24),
               ),
             ],
           ),

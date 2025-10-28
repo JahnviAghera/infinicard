@@ -11,7 +11,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isDarkMode = true;
   String _privacyLevel = 'Connections';
-  String _cloudProvider = 'Firebase';
+  String? _cloudProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -245,25 +245,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     );
 
-                    if (confirmed == true && mounted) {
+                    if (confirmed == true) {
                       // Perform logout
                       final apiService = ApiService();
                       await apiService.logout();
 
-                      if (mounted) {
-                        // Navigate to login screen
-                        Navigator.of(
-                          context,
-                        ).pushNamedAndRemoveUntil('/login', (route) => false);
+                      if (!mounted) return;
 
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('You have been logged out'),
-                            backgroundColor: Colors.green,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
+                      // capture context after mounted check to avoid using BuildContext across async gaps
+                      final ctx = context;
+
+                      // Navigate to login screen
+                      Navigator.of(ctx).pushNamedAndRemoveUntil('/login', (route) => false);
+
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(
+                          content: Text('You have been logged out'),
+                          backgroundColor: Colors.green,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
                     }
                   },
                 ),
@@ -396,11 +397,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
   Widget _buildDropdownTile({
     required IconData icon,
     required String title,
-    required String value,
+    required String? value,
     required List<String> items,
     required Function(String?) onChanged,
   }) {
@@ -418,15 +418,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: const TextStyle(color: Colors.white, fontSize: 16),
       ),
       trailing: DropdownButton<String>(
-        value: value,
+        // ensure value is null when it's not one of the items to avoid assertion
+        value: (value != null && items.contains(value)) ? value : null,
         dropdownColor: const Color(0xFF1C1A1B),
         underline: Container(),
         style: TextStyle(color: Colors.grey[400]),
-        items: items.map((String value) {
-          return DropdownMenuItem<String>(value: value, child: Text(value));
+        items: items.map((String item) {
+          return DropdownMenuItem<String>(value: item, child: Text(item));
         }).toList(),
         onChanged: onChanged,
       ),
     );
-  }
-}
+  }}

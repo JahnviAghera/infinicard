@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:infinicard/services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -16,6 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _apiService = ApiService();
+  XFile? _selectedImage;
 
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -30,6 +34,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    try {
+      final XFile? file = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (file != null) {
+        setState(() {
+          _selectedImage = file;
+        });
+      }
+    } catch (e) {
+      debugPrint('Image pick error: $e');
+    }
   }
 
   Future<void> _handleRegister() async {
@@ -59,7 +82,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
       if (result['success'] == true) {
-        // Registration successful - navigate to home
+        // Registration successful - upload profile image if selected, then navigate to home
+        if (_selectedImage != null) {
+          try {
+            final uploadResult = await _apiService.uploadProfileImage(
+              _selectedImage!.path,
+            );
+            if (!mounted) return;
+            if (uploadResult['success'] != true) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    uploadResult['message'] ?? 'Profile image upload failed',
+                  ),
+                  backgroundColor: Colors.orange,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Profile image upload error: $e'),
+                  backgroundColor: Colors.orange,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          }
+        }
+
+        if (!mounted) return;
+        // Navigate to home
         Navigator.of(context).pushReplacementNamed('/home');
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -171,6 +226,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                         ),
                         const SizedBox(height: 32),
+
+                        // Avatar picker
+                        Center(
+                          child: GestureDetector(
+                            onTap: _isLoading ? null : _pickImage,
+                            child: CircleAvatar(
+                              radius: 44,
+                              backgroundColor: Colors.white24,
+                              backgroundImage: _selectedImage != null
+                                  ? FileImage(File(_selectedImage!.path))
+                                        as ImageProvider
+                                  : null,
+                              child: _selectedImage == null
+                                  ? const Icon(
+                                      Icons.camera_alt_outlined,
+                                      size: 36,
+                                      color: Colors.white,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
 
                         // Full Name Field
                         TextFormField(
@@ -444,38 +522,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         _agreeToTerms = value ?? false;
                                       });
                                     },
-                              fillColor: WidgetStateProperty.resolveWith((
-                                states,
+                              fillColor: MaterialStateProperty.resolveWith((
+                                Set<MaterialState> states,
                               ) {
-                                if (states.contains(WidgetState.selected)) {
+                                if (states.contains(MaterialState.selected)) {
                                   return Theme.of(context).colorScheme.primary;
                                 }
                                 return Colors.white.withOpacity(0.3);
                               }),
                             ),
+                            const SizedBox(width: 8),
                             Expanded(
-                              child: GestureDetector(
-                                onTap: _isLoading
-                                    ? null
-                                    : () {
-                                        setState(() {
-                                          _agreeToTerms = !_agreeToTerms;
-                                        });
-                                      },
-                                child: RichText(
-                                  text: const TextSpan(
-                                    style: TextStyle(color: Colors.white70),
-                                    children: [
-                                      TextSpan(text: 'I agree to the '),
-                                      TextSpan(
-                                        text: 'Terms and Conditions',
-                                        style: TextStyle(
-                                          color: Color(0xFF1E88E5),
-                                          decoration: TextDecoration.underline,
-                                        ),
+                              child: RichText(
+                                text: TextSpan(
+                                  style: const TextStyle(color: Colors.white70),
+                                  children: [
+                                    const TextSpan(text: 'I agree to the '),
+                                    TextSpan(
+                                      text: 'Terms and Conditions',
+                                      style: const TextStyle(
+                                        color: Color(0xFF1E88E5),
+                                        decoration: TextDecoration.underline,
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

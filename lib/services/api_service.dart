@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:infinicard/services/contact_storage_service.dart';
 
 class ApiService {
   // Health check configuration
@@ -27,7 +29,6 @@ class ApiService {
   // For physical devices, use your computer's local IP (e.g., http://192.168.1.100:3000/api)
   static const String baseUrl =
       'https://truthful-vivienne-bishopless.ngrok-free.dev/api';
-
   // Token storage keys
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
@@ -50,6 +51,11 @@ class ApiService {
 
     return headers;
   }
+
+  // Generic message shown to users for unexpected errors.
+  // Detailed error information should not be exposed to end-users.
+  static const String _genericErrorMessage =
+      'Something went wrong. Please try again.';
 
   /// Check API health
   Future<bool> checkHealth() async {
@@ -104,7 +110,6 @@ class ApiService {
     }
   }
 
-  // Initialize - Load saved tokens
   Future<bool> initialize() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -235,7 +240,9 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      // Log detailed error for devs; show a generic message to users.
+      print('ApiService error (register): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -266,13 +273,31 @@ class ApiService {
         return {'success': false, 'message': data['message'] ?? 'Login failed'};
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (login): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
   /// Logout user
   Future<void> logout() async {
+    // Clear auth tokens and user info
     await clearTokens();
+
+    // Clear local contact cache (CSV cache)
+    try {
+      final storage = ContactStorageService();
+      await storage.clearCache();
+    } catch (e) {
+      print('Error clearing contact storage cache: $e');
+    }
+
+    // Clear all SharedPreferences (app user data)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+    } catch (e) {
+      print('Error clearing shared preferences: $e');
+    }
   }
 
   /// Get user profile
@@ -294,7 +319,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (getProfile): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -318,7 +344,50 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (updateProfile): $e');
+      return {'success': false, 'message': _genericErrorMessage};
+    }
+  }
+
+  /// Upload profile image/avatar
+  ///
+  /// Notes/assumptions: The backend expects a multipart/form-data POST to
+  /// /auth/profile/avatar with field name 'avatar'. If your backend uses a
+  /// different path or field name, adjust accordingly.
+  Future<Map<String, dynamic>> uploadProfileImage(String filePath) async {
+    try {
+      final uri = Uri.parse('$baseUrl/auth/profile/avatar');
+
+      final request = http.MultipartRequest('POST', uri);
+      // Attach auth header
+      if (_accessToken != null) {
+        request.headers['Authorization'] = 'Bearer $_accessToken';
+      }
+
+      final file = File(filePath);
+      final multipartFile = await http.MultipartFile.fromPath(
+        'avatar',
+        file.path,
+      );
+      request.files.add(multipartFile);
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        // Optionally refresh local profile cache
+        return {'success': true, 'data': data['data']};
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to upload profile image',
+        };
+      }
+    } catch (e) {
+      print('ApiService error (uploadProfileImage): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -348,7 +417,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (changePassword): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -374,7 +444,8 @@ class ApiService {
 
       final response = await http.get(
         uri,
-        headers: _getHeaders(includeAuth: true),
+        // Include Authorization header only when an access token exists.
+        headers: _getHeaders(includeAuth: _accessToken != null),
       );
 
       final data = jsonDecode(response.body);
@@ -392,7 +463,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (getCards): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -415,7 +487,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (getCard): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -439,7 +512,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (getPublicCard): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -485,7 +559,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (createCard): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -516,7 +591,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (updateCard): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -539,7 +615,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (deleteCard): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -562,7 +639,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (toggleFavoriteCard): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -585,7 +663,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (searchCards): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -679,7 +758,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (getProfessionals): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -709,7 +789,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (sendConnectionRequest): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -739,7 +820,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (getConnections): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -762,7 +844,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (acceptConnection): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -785,7 +868,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (rejectConnection): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -794,7 +878,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/discover/locations'),
-        headers: _getHeaders(includeAuth: true),
+        headers: _getHeaders(includeAuth: _accessToken != null),
       );
 
       final data = jsonDecode(response.body);
@@ -808,7 +892,8 @@ class ApiService {
         };
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('ApiService error (getLocations/getFields): $e');
+      return {'success': false, 'message': _genericErrorMessage};
     }
   }
 
@@ -817,7 +902,7 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/discover/fields'),
-        headers: _getHeaders(includeAuth: true),
+        headers: _getHeaders(includeAuth: _accessToken != null),
       );
 
       final data = jsonDecode(response.body);

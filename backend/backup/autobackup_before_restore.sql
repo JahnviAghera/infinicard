@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict I04lac9hdVnIiBVGY80iyPkWlKd41dbFdasFRnanGbgQ0cGbiWc9w2pvgPzyhH4
+\restrict fNLBiCibSSvJ3CWk2jUPV9H4h081KIVGg9FtVk1vc5fN1HCwF4DymrHQVKRradX
 
 -- Dumped from database version 16.10
 -- Dumped by pg_dump version 16.10
@@ -472,7 +472,10 @@ bdeedc45-2e1a-4098-a487-9cc359e90b53	550e8400-e29b-41d4-a716-446655440000	John A
 fff43b68-ccd9-4063-bf42-991c8f6aef8b	550e8400-e29b-41d4-a716-446655440000	Michael Chen	UX Designer	DesignHub Studio	michael.chen@designhub.com	+1-555-0103	https://designhub.design	789 Creative Blvd, Portland, OR 97201	\N	#9C27B0	t	2025-10-18 08:56:02.632142+00	2025-10-18 08:56:02.632142+00	\N	f
 1930377f-8d03-4474-8c5d-55b366a074a0	550e8400-e29b-41d4-a716-446655440000	Emily Rodriguez	Marketing Director	BrandWorks Agency	emily.rodriguez@brandworks.com	+1-555-0104	https://brandworks.co	321 Marketing Plaza, New York, NY 10001	\N	#FF9800	f	2025-10-18 08:56:02.632142+00	2025-10-18 08:56:02.632142+00	\N	f
 48874088-b390-4366-9f64-4e18872bdf69	550e8400-e29b-41d4-a716-446655440000	David Thompson	CEO & Founder	StartupVentures	david@startupventures.io	+1-555-0105	https://startupventures.io	555 Entrepreneur Way, San Francisco, CA 94105	\N	#F44336	t	2025-10-18 08:56:02.632142+00	2025-10-18 08:56:02.632142+00	\N	f
-53bf9192-f609-4f9a-b43e-036779bb1662	53862d25-d38b-4a33-8cec-bdf003488a00	JAHNVI AGHERA	Founder	SUN K INNOVATIONS	jahnviaghera@gmail.com	+918799448954	\N	\N	\N	#1e88e5	f	2025-10-18 09:16:11.516023+00	2025-10-18 09:16:11.516023+00	\N	f
+216d0206-9545-4617-82b7-baa11124ef83	53862d25-d38b-4a33-8cec-bdf003488a00	HITESHBAHI AGHERA	CEO & Founder	SUN HEATERS	sunheaters@ymail.com	\N	\N	\N	\N	#ff5722	f	2025-10-19 08:20:47.116868+00	2025-10-19 08:20:47.116868+00	\N	f
+53bf9192-f609-4f9a-b43e-036779bb1662	53862d25-d38b-4a33-8cec-bdf003488a00	JAHNVI AGHERA	Founder	SUN K INNOVATIONS	jahnviaghera@gmail.com	+918799448954	\N	\N	\N	#0d47a1	f	2025-10-18 09:16:11.516023+00	2025-10-19 08:42:22.034601+00	\N	t
+fc26bea3-40e0-4cf6-8e37-f781cc92781a	53862d25-d38b-4a33-8cec-bdf003488a00	JAHNVI AGHERA	Chair	IEEE SIGHT MEFGI	jahnviaghera@ieee.org	8799448954	\N	\N	\N	#4caf50	f	2025-10-24 17:32:05.764351+00	2025-10-24 17:32:05.764351+00	\N	f
+a9a7b23b-9a96-49e1-b9a2-60ad24df20a9	53862d25-d38b-4a33-8cec-bdf003488a00	ADITYA RAJ	LEAD SOFTWARE DEVELOPER	GOOGLE	adityaraj@gmail.com	+91 9099537096	\N	\N	\N	#673ab7	f	2025-10-19 08:40:56.446388+00	2025-10-24 17:49:06.299783+00	\N	f
 \.
 
 
@@ -539,6 +542,9 @@ d888143d-8c9c-4641-9ca7-fc075ad0b2d3	550e8400-e29b-41d4-a716-446655440000	Robert
 
 COPY public.notifications (id, user_id, type, message, is_read, created_at) FROM stdin;
 eae13045-d107-4c16-bb5e-545a998e8739	53862d25-d38b-4a33-8cec-bdf003488a00	card_added	Business card "JAHNVI AGHERA" was added.	f	2025-10-18 09:16:11.79003
+58b1d2ec-82ae-43de-b5ea-e63f1cf0bc3a	53862d25-d38b-4a33-8cec-bdf003488a00	card_added	Business card "HITESHBAHI AGHERA" was added.	f	2025-10-19 08:20:47.193946
+49dd51e7-6cbe-4c5d-932c-397314f445ca	53862d25-d38b-4a33-8cec-bdf003488a00	card_added	Business card "JIGNA AGHERA" was added.	f	2025-10-19 08:40:56.504006
+fd922995-8a8e-44bd-b62e-06acaca682ea	53862d25-d38b-4a33-8cec-bdf003488a00	card_added	Business card "JAHNVI AGHERA" was added.	f	2025-10-24 17:32:08.311481
 \.
 
 
@@ -612,6 +618,12 @@ b7598e4a-cc8c-4975-a759-a5449925a533	550e8400-e29b-41d4-a716-446655440000	busine
 86d29f02-6aba-4540-8d04-19d9d5331992	550e8400-e29b-41d4-a716-446655440000	contacts	d888143d-8c9c-4641-9ca7-fc075ad0b2d3	create	2025-10-18 08:56:02.662363+00	\N
 216beb11-cac4-40e4-a78e-14ddb2ec0620	550e8400-e29b-41d4-a716-446655440000	contacts	9df90a16-38b0-472b-92fb-00e735f6015d	create	2025-10-18 08:56:02.662363+00	\N
 8377baa0-7843-4286-86a0-4457cf43b4d6	53862d25-d38b-4a33-8cec-bdf003488a00	business_cards	53bf9192-f609-4f9a-b43e-036779bb1662	create	2025-10-18 09:16:11.516023+00	\N
+febeb716-026a-4a47-87e6-ffc249f868d3	53862d25-d38b-4a33-8cec-bdf003488a00	business_cards	53bf9192-f609-4f9a-b43e-036779bb1662	update	2025-10-19 07:38:27.938417+00	\N
+c5e802c8-7fb4-416a-b0de-bb941c95ecce	53862d25-d38b-4a33-8cec-bdf003488a00	business_cards	216d0206-9545-4617-82b7-baa11124ef83	create	2025-10-19 08:20:47.116868+00	\N
+748cfd25-8a47-403b-a98b-5665be7dc6b7	53862d25-d38b-4a33-8cec-bdf003488a00	business_cards	a9a7b23b-9a96-49e1-b9a2-60ad24df20a9	create	2025-10-19 08:40:56.446388+00	\N
+e5afc736-aa0b-47ba-b697-7b1d965423a5	53862d25-d38b-4a33-8cec-bdf003488a00	business_cards	53bf9192-f609-4f9a-b43e-036779bb1662	update	2025-10-19 08:42:22.034601+00	\N
+601a322b-1405-4e08-b031-6a2e9500f85d	53862d25-d38b-4a33-8cec-bdf003488a00	business_cards	fc26bea3-40e0-4cf6-8e37-f781cc92781a	create	2025-10-24 17:32:05.764351+00	\N
+9a197254-30ee-41f0-89bd-2f26c2efe005	53862d25-d38b-4a33-8cec-bdf003488a00	business_cards	a9a7b23b-9a96-49e1-b9a2-60ad24df20a9	update	2025-10-24 17:49:06.299783+00	\N
 \.
 
 
@@ -634,7 +646,7 @@ eabdc869-f48a-47f0-9731-57ef2a309ef9	550e8400-e29b-41d4-a716-446655440000	Collea
 
 COPY public.users (id, email, username, password_hash, full_name, created_at, updated_at, last_login, is_active) FROM stdin;
 550e8400-e29b-41d4-a716-446655440000	demo@infinicard.com	demo_user	123456	Demo User	2025-10-18 08:56:02.590011+00	2025-10-18 09:11:57.87845+00	\N	t
-53862d25-d38b-4a33-8cec-bdf003488a00	jahnviaghera@gmail.com	jahnviaghera	$2a$10$ZWTDo5BuYRNtbHs7iI4kOuJOQ4j47dtr3LrE/mKVLngj55gIo5GRK	Jahnvi Aghera	2025-10-18 09:13:07.405844+00	2025-10-18 09:50:21.604727+00	2025-10-18 09:50:21.604727+00	t
+53862d25-d38b-4a33-8cec-bdf003488a00	jahnviaghera@gmail.com	jahnviaghera	$2a$10$ZWTDo5BuYRNtbHs7iI4kOuJOQ4j47dtr3LrE/mKVLngj55gIo5GRK	Jahnvi Aghera	2025-10-18 09:13:07.405844+00	2025-10-26 05:27:23.039816+00	2025-10-26 05:27:23.039816+00	t
 \.
 
 
@@ -1167,5 +1179,5 @@ ALTER TABLE ONLY public.tags
 -- PostgreSQL database dump complete
 --
 
-\unrestrict I04lac9hdVnIiBVGY80iyPkWlKd41dbFdasFRnanGbgQ0cGbiWc9w2pvgPzyhH4
+\unrestrict fNLBiCibSSvJ3CWk2jUPV9H4h081KIVGg9FtVk1vc5fN1HCwF4DymrHQVKRradX
 

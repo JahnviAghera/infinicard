@@ -7,6 +7,9 @@ const { authenticateToken } = require('../middleware/auth');
 // Public routes
 router.post('/register', registerValidation, authController.register);
 router.post('/login', loginValidation, authController.login);
+router.post('/request-otp', authController.requestOtp);
+router.post('/verify-otp', authController.verifyOtp);
+router.post('/reset-password-otp', authController.resetPasswordWithOtp);
 
 // Protected routes
 router.get('/profile', authenticateToken, authController.getProfile);

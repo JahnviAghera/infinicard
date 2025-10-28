@@ -37,6 +37,13 @@ const register = async (req, res) => {
     // Generate tokens
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
+    // Send welcome email asynchronously (do not block registration if mail fails)
+    try {
+      const { sendWelcomeEmail } = require('../mail');
+      sendWelcomeEmail(user.email, user.full_name || user.username).catch(err => console.error('Welcome email error:', err));
+    } catch (mailErr) {
+      console.error('Failed to enqueue welcome email:', mailErr);
+    }
 
     res.status(201).json({
       success: true,
@@ -60,6 +67,99 @@ const register = async (req, res) => {
       message: 'Failed to register user',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
+  }
+};
+
+// Request an OTP for an email (verification / password reset)
+const requestOtp = async (req, res) => {
+  try {
+    const { email, purpose } = req.body;
+    if (!email) return res.status(400).json({ success: false, message: 'Missing `email` in body' });
+
+    // generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await query(
+      'INSERT INTO otps (email, code, purpose, expires_at) VALUES ($1, $2, $3, $4)',
+      [email, otp, purpose || 'verification', expiresAt]
+    );
+
+    // send OTP email
+    try {
+      const { sendOtpEmail } = require('../mail');
+      await sendOtpEmail(email, otp, purpose || 'verification');
+    } catch (err) {
+      console.error('Failed to send OTP email:', err);
+    }
+
+    res.json({ success: true, message: 'OTP generated and sent if possible' });
+  } catch (error) {
+    console.error('requestOtp error:', error);
+    res.status(500).json({ success: false, message: 'Failed to request OTP' });
+  }
+};
+
+// Verify OTP
+const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp, purpose } = req.body;
+    if (!email || !otp) return res.status(400).json({ success: false, message: 'Missing `email` or `otp`' });
+
+    const result = await query(
+      `SELECT id, code, used, expires_at FROM otps WHERE email = $1 AND purpose = $2 ORDER BY created_at DESC LIMIT 1`,
+      [email, purpose || 'verification']
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'OTP not found' });
+    }
+
+    const row = result.rows[0];
+    if (row.used) return res.status(400).json({ success: false, message: 'OTP already used' });
+    if (new Date(row.expires_at) < new Date()) return res.status(400).json({ success: false, message: 'OTP expired' });
+    if (row.code !== otp) return res.status(400).json({ success: false, message: 'Invalid OTP' });
+
+    // mark used
+    await query('UPDATE otps SET used = true WHERE id = $1', [row.id]);
+
+    res.json({ success: true, message: 'OTP verified' });
+  } catch (error) {
+    console.error('verifyOtp error:', error);
+    res.status(500).json({ success: false, message: 'Failed to verify OTP' });
+  }
+};
+
+// Reset password using OTP (verify then update password)
+const resetPasswordWithOtp = async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) return res.status(400).json({ success: false, message: 'Missing fields' });
+
+    // Verify OTP
+    const verifyRes = await query(
+      `SELECT id, code, used, expires_at FROM otps WHERE email = $1 AND purpose = $2 ORDER BY created_at DESC LIMIT 1`,
+      [email, 'forgot-password']
+    );
+    if (verifyRes.rows.length === 0) return res.status(404).json({ success: false, message: 'OTP not found' });
+    const row = verifyRes.rows[0];
+    if (row.used) return res.status(400).json({ success: false, message: 'OTP already used' });
+    if (new Date(row.expires_at) < new Date()) return res.status(400).json({ success: false, message: 'OTP expired' });
+    if (row.code !== otp) return res.status(400).json({ success: false, message: 'Invalid OTP' });
+
+    // mark used
+    await query('UPDATE otps SET used = true WHERE id = $1', [row.id]);
+
+    // Update user's password
+    const saltRounds = 10;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+    const updateRes = await query('UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2 RETURNING id', [newPasswordHash, email]);
+    if (updateRes.rows.length === 0) return res.status(404).json({ success: false, message: 'User not found' });
+
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('resetPasswordWithOtp error:', error);
+    res.status(500).json({ success: false, message: 'Failed to reset password' });
   }
 };
 
@@ -277,4 +377,7 @@ module.exports = {
   getProfile,
   updateProfile,
   changePassword,
+  requestOtp,
+  verifyOtp,
+  resetPasswordWithOtp,
 };

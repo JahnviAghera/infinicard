@@ -1,0 +1,12 @@
+{
+  "tessdata": {
+    "lang": "eng",
+    "oem": "LSTM_ONLY",
+    "psm": 6,
+    "variables": {
+      "tessedit_char_whitelist": "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@._%+-()+:/#&",
+      "user_defined_dpi": 300
+    }
+  },
+  "notes": "This file is meant to be loaded by the app and used to configure tesseract_ocr calls or passed to native code. Adjust 'lang' and 'psm' as required for different languages or layouts."
+}

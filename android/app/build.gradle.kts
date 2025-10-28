@@ -41,3 +41,28 @@ android {
 flutter {
     source = "../.."
 }
+
+// Copy tessdata traineddata from Flutter assets into Android assets/tessdata so
+// the native Tesseract engine can find the files at runtime. This runs before
+// the build (preBuild) and is safe when the source file doesn't exist.
+tasks.register<Copy>("copyTessdata") {
+    val srcFile = file("${rootProject.projectDir}/assets/eng.traineddata")
+    val destDir = file("${projectDir}/src/main/assets/tessdata")
+    // Only copy if the source exists
+    if (srcFile.exists()) {
+        from(srcFile)
+        into(destDir)
+        doFirst {
+            destDir.mkdirs()
+            println("[build] Copying eng.traineddata -> ${destDir.absolutePath}")
+        }
+    } else {
+        doFirst {
+            println("[build] eng.traineddata not found in project assets; skipping copy.")
+        }
+    }
+}
+
+tasks.named("preBuild") {
+    dependsOn("copyTessdata")
+}

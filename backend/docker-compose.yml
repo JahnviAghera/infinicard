@@ -34,6 +34,32 @@ services:
     environment:
       ADMINER_DEFAULT_SERVER: postgres
 
+
+  # Optional: run the API inside Docker for development. This will mount the repo and
+  # start the dev server. Environment variables are read from .env (see .env.example).
+  backend:
+    image: node:18-alpine
+    container_name: infinicard_api
+    restart: unless-stopped
+    working_dir: /usr/src/app
+    volumes:
+      - ./:/usr/src/app
+      - /usr/src/app/node_modules
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
+    ports:
+      - "3000:3000"
+    # Use the project .env for most values, but when running inside Docker
+    # the DB host/port should point to the Postgres service (container internal)
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+    networks:
+      - infinicard_network
+    depends_on:
+      - postgres
+
 volumes:
   postgres_data:
     driver: local

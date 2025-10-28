@@ -40,6 +40,8 @@ dependencies:
   http: ^1.1.0
   lucide_icons_flutter:
   app_links: ^6.0.0
+  image_picker: ^0.8.7+5
+  mobile_scanner: ^3.0.0
 #  flutter_nearby_connections: ^1.1.2
   camera: ^0.11.2
   tesseract_ocr: ^0.5.0
@@ -74,6 +76,7 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/
+    - android/app/src/main/assets/tessdata
 #    - assets/ocr_model.tflite
   # To add assets to your application, add an assets section, like this:
   # assets:

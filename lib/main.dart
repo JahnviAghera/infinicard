@@ -24,14 +24,21 @@ import 'package:infinicard/screens/about_screen.dart';
 import 'package:infinicard/screens/notifications_screen.dart';
 import 'package:infinicard/screens/activity_log_screen.dart';
 import 'package:infinicard/screens/scan_card_screen.dart';
+import 'package:infinicard/screens/camera_lens_screen.dart';
 import 'package:infinicard/screens/onboarding_screen.dart';
 import 'package:infinicard/screens/walkthrough_screen.dart';
 import 'package:infinicard/screens/login_screen.dart';
 import 'package:infinicard/screens/register_screen.dart';
 import 'package:infinicard/screens/card_import_screen.dart';
 import 'package:infinicard/services/api_service.dart';
+import 'package:infinicard/services/contact_storage_service.dart';
+import 'package:infinicard/models/contact_model.dart';
 
 import 'models/card_model.dart';
+
+// Route observer used to notify screens when they become visible again
+final RouteObserver<ModalRoute<void>> routeObserver =
+    RouteObserver<ModalRoute<void>>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -125,7 +132,7 @@ class _MyAppState extends State<MyApp> {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
-          backgroundColor: const Color(0xFF0D0C0F),
+          backgroundColor: const Color(0xFFFFFFFF),
           body: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -152,9 +159,10 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Infinicard',
+      navigatorObservers: [routeObserver],
       theme: ThemeData(
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF0D0C0F),
+        scaffoldBackgroundColor: const Color(0xFFFFFFFF),
       ),
       home: _isAuthenticated ? const Home() : const LoginScreen(),
       onGenerateRoute: (settings) {
@@ -186,6 +194,7 @@ class _MyAppState extends State<MyApp> {
         '/notifications': (context) => const NotificationsScreen(),
         '/activity': (context) => const ActivityLogScreen(),
         '/scan': (context) => const ScanCardScreen(),
+        '/lens': (context) => const CameraLensScreen(),
       },
     );
   }
@@ -232,26 +241,156 @@ class _HomeState extends State<Home> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(child: _screens[_selectedIndex]),
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.symmetric(vertical: 40, horizontal: 60),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        width: 360,
-        height: 60,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.all(Radius.circular(8)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _navItem(icon: Icons.home_rounded, label: 'Home', index: 0),
-            _navItem(
-              icon: Icons.document_scanner_rounded,
-              label: 'Scan',
-              index: 2,
-            ),
-            _navItem(icon: Icons.settings_rounded, label: 'Settings', index: 1),
-          ],
+      // Exact bottom nav: pale-cyan dock with left white selected pill and
+      // three teal icons to the right (Home selected on the left)
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+        child: SizedBox(
+          height: 120,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              // Dock positioned slightly lower so center button can sit above it
+              Positioned(
+                top: 40,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F8FB), // pale cyan
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Selected Home pill (left)
+                        GestureDetector(
+                          onTap: () => _onNavTap(0),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: const [
+                                Icon(
+                                  Icons.home_outlined,
+                                  color: Color(0xFF0F7685),
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Home',
+                                  style: TextStyle(
+                                    color: Color(0xFF0F7685),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Spacer between left pill and icons
+                        const SizedBox(width: 16),
+
+                        // Second icon (cards)
+                        Expanded(
+                          child: InkWell(
+                            onTap: () =>
+                                Navigator.pushNamed(context, '/my-cards'),
+                            child: const Center(
+                              child: Icon(
+                                Icons.credit_card_outlined,
+                                size: 28,
+                                color: Color(0xFF0F7685),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 40),
+
+                        // Third icon (contacts)
+                        Expanded(
+                          child: InkWell(
+                            onTap: () =>
+                                Navigator.pushNamed(context, '/contacts'),
+                            child: const Center(
+                              child: Icon(
+                                Icons.contact_page_outlined,
+                                size: 28,
+                                color: Color(0xFF0F7685),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+
+                        // Fourth icon (settings)
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _onNavTap(1),
+                            child: const Center(
+                              child: Icon(
+                                Icons.settings_outlined,
+                                size: 28,
+                                color: Color(0xFF0F7685),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Center circular Scan button overlapping the dock and fully visible
+              Positioned(
+                top: 0,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pushNamed('/lens'),
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F7685), // deep teal
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.document_scanner_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -403,13 +542,29 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with WidgetsBindingObserver, RouteAware {
   Map<String, dynamic>? _userInfo;
+  Future<List<BusinessCard>>? _cardsFuture;
 
   @override
   void initState() {
     super.initState();
+    // Initialize future and fetch profile
+    _cardsFuture = _loadCards();
     _fetchAndStoreUserInfo();
+    // Observe app lifecycle to refresh when app resumes
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to route observer to know when this screen becomes visible again
+    final modal = ModalRoute.of(context);
+    if (modal != null) {
+      routeObserver.subscribe(this, modal);
+    }
   }
 
   Future<void> _fetchAndStoreUserInfo() async {
@@ -445,6 +600,36 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint('Error loading cards: $e');
     }
     return [];
+  }
+
+  // Refresh cards and user info
+  Future<void> _refresh() async {
+    setState(() {
+      _cardsFuture = _loadCards();
+    });
+    await _fetchAndStoreUserInfo();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // App moved to foreground — refresh content
+      _refresh();
+    }
+  }
+
+  // Called when a route above this one has been popped and this route
+  // is now visible (e.g., user returned from My Cards). Refresh content.
+  void didPopNext() {
+    _refresh();
   }
 
   Widget _buildQuickAccessCard(
@@ -492,7 +677,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0C0F),
+      backgroundColor: Colors.white,
       // appBar: AppBar(
       //       //   backgroundColor: const Color(0xFF1C1A1B),
       //       //   title: const Text(
@@ -513,40 +698,82 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 24),
-            if (_userInfo != null)
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundImage: NetworkImage(
-                      _userInfo!['profile_picture'] ??
-                          'https://i.pravatar.cc/150',
-                    ),
-                    radius: 24,
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    'Welcome, ${_userInfo!['fullName'] ?? 'User'}',
-                    style: const TextStyle(color: Colors.white, fontSize: 20),
-                  ),
-                ],
-              )
-            else
-              Row(
-                children: [
-                  CircleAvatar(backgroundColor: Colors.grey[800], radius: 24),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 150,
-                        height: 20,
-                        color: Colors.grey[800],
+            // Header: avatar, welcome text and notifications icon
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    // avatar square
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(12),
+                        image: _userInfo != null
+                            ? DecorationImage(
+                                image: NetworkImage(
+                                  _userInfo!['profile_picture'] ??
+                                      'https://i.pravatar.cc/150',
+                                ),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                    const SizedBox(width: 16),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Welcome,',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _userInfo != null
+                              ? (_userInfo!['fullName'] ?? 'User')
+                              : 'Guest',
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                // notification bell with small dot
+                Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.notifications_outlined,
+                        color: Colors.black87,
+                      ),
+                      onPressed: () {},
+                    ),
+                    Positioned(
+                      right: 10,
+                      top: 12,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF0F7685),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
 
             // const Text(
             //   'Quick Access',
@@ -580,7 +807,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Show first existing card from cache
             FutureBuilder<List<BusinessCard>>(
-              future: _loadCards(),
+              future: _cardsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const _CardSkeleton();
@@ -668,79 +895,79 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             const SizedBox(height: 32),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C1A1B),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // const Text(
-                  //   'Actions',
-                  //   style: TextStyle(
-                  //     color: Colors.white,
-                  //     fontSize: 18,
-                  //     fontWeight: FontWeight.bold,
-                  //   ),
-                  // ),
-                  // const SizedBox(height: 16),
-                  GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/create-card'),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.add, color: Colors.white70),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Create Card',
-                          style: TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/my-cards'),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.credit_card, color: Colors.white),
-                        const Text(
-                          'My Cards',
-                          style: TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/contacts'),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.contact_phone, color: Colors.white),
-                        const Text(
-                          'Contacts',
-                          style: TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: () => Navigator.pushNamed(context, '/discover'),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.explore, color: Colors.white),
-                        const Text(
-                          'Discover',
-                          style: TextStyle(color: Colors.white, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // Container(
+            //   padding: const EdgeInsets.all(16),
+            //   decoration: BoxDecoration(
+            //     color: const Color(0xFF1C1A1B),
+            //     borderRadius: BorderRadius.circular(12),
+            //   ),
+            //   child: Row(
+            //     crossAxisAlignment: CrossAxisAlignment.start,
+            //     children: [
+            //       // const Text(
+            //       //   'Actions',
+            //       //   style: TextStyle(
+            //       //     color: Colors.white,
+            //       //     fontSize: 18,
+            //       //     fontWeight: FontWeight.bold,
+            //       //   ),
+            //       // ),
+            //       // const SizedBox(height: 16),
+            //       GestureDetector(
+            //         onTap: () => Navigator.pushNamed(context, '/create-card'),
+            //         child: Column(
+            //           children: [
+            //             const Icon(Icons.add, color: Colors.white70),
+            //             const SizedBox(width: 12),
+            //             const Text(
+            //               'Create Card',
+            //               style: TextStyle(color: Colors.white, fontSize: 16),
+            //             ),
+            //           ],
+            //         ),
+            //       ),
+            //       const SizedBox(width: 10),
+            //       GestureDetector(
+            //         onTap: () => Navigator.pushNamed(context, '/my-cards'),
+            //         child: Column(
+            //           children: [
+            //             const Icon(Icons.credit_card, color: Colors.white),
+            //             const Text(
+            //               'My Cards',
+            //               style: TextStyle(color: Colors.white, fontSize: 16),
+            //             ),
+            //           ],
+            //         ),
+            //       ),
+            //       const SizedBox(width: 10),
+            //       GestureDetector(
+            //         onTap: () => Navigator.pushNamed(context, '/contacts'),
+            //         child: Column(
+            //           children: [
+            //             const Icon(Icons.contact_phone, color: Colors.white),
+            //             const Text(
+            //               'Contacts',
+            //               style: TextStyle(color: Colors.white, fontSize: 16),
+            //             ),
+            //           ],
+            //         ),
+            //       ),
+            //       const SizedBox(width: 10),
+            //       // GestureDetector(
+            //       //   onTap: () => Navigator.pushNamed(context, '/discover'),
+            //       //   child: Column(
+            //       //     children: [
+            //       //       const Icon(Icons.explore, color: Colors.white),
+            //       //       const Text(
+            //       //         'Discover',
+            //       //         style: TextStyle(color: Colors.white, fontSize: 16),
+            //       //       ),
+            //       //     ],
+            //       //   ),
+            //       // ),
+            //     ],
+            //   ),
+            // ),
           ],
         ),
       ),
@@ -833,7 +1060,7 @@ class AppDrawer extends StatelessWidget {
           const Divider(color: Colors.grey),
           _buildDrawerSection('Network'),
           _buildDrawerItem(context, 'Contacts', Icons.contacts, '/contacts'),
-          _buildDrawerItem(context, 'Discover', Icons.explore, '/discover'),
+          // _buildDrawerItem(context, 'Discover', Icons.explore, '/discover'),
           _buildDrawerItem(context, 'Activity Log', Icons.history, '/activity'),
           const Divider(color: Colors.grey),
           _buildDrawerSection('Features'),
@@ -908,71 +1135,65 @@ class ContactsScreen extends StatefulWidget {
 
 class _ContactsScreenState extends State<ContactsScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final List<Map<String, String>> _allContacts = [
-    {"name": "Alice Smith", "phone": "+91 87994 48954", "designation": "CEO"},
-    {
-      "name": "Bob Johnson",
-      "phone": "+91 98765 43211",
-      "designation": "Designer",
-    },
-    {
-      "name": "Charlie Brown",
-      "phone": "+91 98765 43212",
-      "designation": "Developer",
-    },
-    {
-      "name": "Diana Prince",
-      "phone": "+91 98765 43213",
-      "designation": "Manager",
-    },
-    {
-      "name": "Ethan Hunt",
-      "phone": "+91 98765 43214",
-      "designation": "Designer",
-    },
-    {
-      "name": "Fiona Glenanne",
-      "phone": "+91 98765 43215",
-      "designation": "CEO",
-    },
-    {
-      "name": "George Costanza",
-      "phone": "+91 98765 43216",
-      "designation": "Developer",
-    },
-    {
-      "name": "Hannah Montana",
-      "phone": "+91 98765 43217",
-      "designation": "Intern",
-    },
-    {
-      "name": "Ian Malcolm",
-      "phone": "+91 98765 43218",
-      "designation": "Designer",
-    },
-    {"name": "Jane Doe", "phone": "+91 98765 43219", "designation": "Manager"},
-    {"name": "Kramer", "phone": "+91 98765 43220", "designation": "CEO"},
-    {
-      "name": "Liz Lemon",
-      "phone": "+91 98765 43221",
-      "designation": "Developer",
-    },
-  ];
-
+  List<Map<String, String>> _allContacts = [];
   List<Map<String, String>> _filteredContacts = [];
   String? _selectedDesignation;
   late List<String> _designations;
+  bool _loadingContacts = true;
 
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(_filterContacts);
+    _loadContacts();
+  }
+
+  Future<void> _loadContacts() async {
+    // Load persisted app contacts and merge with sample defaults if none
+    final storage = ContactStorageService();
+    final stored = await storage.loadContacts();
+
+    if (stored.isNotEmpty) {
+      // Convert stored Contact objects to the simple Map format used by this screen
+      _allContacts = stored
+          .map(
+            (c) => {
+              'name': c.name,
+              'phone': c.phone,
+              'designation': c.title.isNotEmpty ? c.title : c.company,
+            },
+          )
+          .toList();
+    } else {
+      // default sample contacts (kept small)
+      _allContacts = [
+        {
+          "name": "Alice Smith",
+          "phone": "+91 87994 48954",
+          "designation": "CEO",
+        },
+        {
+          "name": "Bob Johnson",
+          "phone": "+91 98765 43211",
+          "designation": "Designer",
+        },
+        {
+          "name": "Charlie Brown",
+          "phone": "+91 98765 43212",
+          "designation": "Developer",
+        },
+      ];
+    }
+
     _designations = [
       "All",
       ..._allContacts.map((c) => c['designation']!).toSet().toList(),
     ];
     _selectedDesignation = _designations.first;
-    _filteredContacts = _allContacts;
-    _searchController.addListener(_filterContacts);
+    _filteredContacts = List.from(_allContacts);
+    setState(() {
+      _loadingContacts = false;
+    });
   }
 
   @override

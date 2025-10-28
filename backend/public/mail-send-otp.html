@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Send OTP Email</title>
+<style>body{font-family:system-ui,Segoe UI,Roboto,Arial;max-width:720px;margin:24px auto;padding:16px}label{display:block;margin-top:12px}input,textarea,select{width:100%;padding:8px;margin-top:6px;border:1px solid #ccc;border-radius:6px}button{margin-top:12px;padding:10px 16px;background:#0b6efd;color:#fff;border:0;border-radius:6px}pre{background:#f6f8fa;padding:12px;border-radius:6px}</style>
+</head><body>
+<h1>Send OTP Email</h1>
+<form id="otpForm">
+  <label>To (email)<input id="to" type="email" required></label>
+  <label>OTP Code<input id="otp" type="text" required></label>
+  <label>Purpose<select id="purpose"><option value="verification">Verification</option><option value="forgot password">Forgot Password</option></select></label>
+  <button type="submit">Send OTP Email</button>
+</form>
+<h3>Response</h3>
+<pre id="out">(no response)</pre>
+<script>
+const form=document.getElementById('otpForm');const out=document.getElementById('out');form.addEventListener('submit',async e=>{e.preventDefault();out.textContent='Sending...';const payload={to:document.getElementById('to').value,otp:document.getElementById('otp').value,purpose:document.getElementById('purpose').value};try{const r=await fetch('/api/mail/send-otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const j=await r.json();out.textContent=JSON.stringify(j,null,2)}catch(err){out.textContent='Error:'+err.message}});
+</script>
+</body></html>

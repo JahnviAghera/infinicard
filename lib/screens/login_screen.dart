@@ -128,13 +128,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       ).textTheme.bodyLarge?.copyWith(color: Colors.white),
                     ),
                     const SizedBox(height: 48),
-
-                    // Email Field
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       enabled: !_isLoading,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: Colors.black),
                       decoration: InputDecoration(
                         labelText: 'Email',
                         hintText: 'Enter your email',
@@ -180,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       enabled: !_isLoading,
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: Colors.black),
                       decoration: InputDecoration(
                         labelText: 'Password',
                         hintText: 'Enter your password',
@@ -280,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                       child: const Text(
                         'Forgot Password?',
-                        style: TextStyle(color: Colors.white70),
+                        style: TextStyle(color: Colors.black54),
                       ),
                     ),
                     const SizedBox(height: 32),

@@ -20,9 +20,9 @@ class _SharingScreenState extends State<SharingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0C0F),
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1C1A1B),
+        backgroundColor: const Color(0xFFFFFFFF),
         title: const Text('Share Contact'),
         actions: [
           IconButton(
@@ -59,7 +59,7 @@ class _SharingScreenState extends State<SharingScreen> {
                   _showQR
                       ? (_useOnlineShare
                             ? 'Online Share QR'
-                            : 'Offline Share QR')
+                            : 'Vitaual Ifnicard')
                       : 'Tap to show QR code',
                   style: TextStyle(color: Colors.grey[500], fontSize: 12),
                 ),
@@ -78,7 +78,7 @@ class _SharingScreenState extends State<SharingScreen> {
                     ),
                     label: Text(
                       _useOnlineShare
-                          ? 'Switch to Offline Share'
+                          ? 'Switch to Vitaual Ifnicard'
                           : 'Switch to Online Share',
                       style: const TextStyle(color: Colors.blue, fontSize: 12),
                     ),
@@ -231,13 +231,11 @@ class _SharingScreenState extends State<SharingScreen> {
       ),
     );
   }
-
   Widget _buildQRView() {
     // Use online share URL or vCard data
     final qrData = _useOnlineShare
         ? 'infinicard://share/${widget.card.id}' // Deep link for app-to-app sharing
         : _sharingService.generateVCard(widget.card); // Traditional vCard
-
     return Container(
       key: const ValueKey('qr'),
       margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -296,7 +294,7 @@ class _SharingScreenState extends State<SharingScreen> {
                 Text(
                   _useOnlineShare
                       ? 'Scan with InfiniCard'
-                      : 'Scan with any device',
+                      : 'Scan with Google Lense',
                   style: TextStyle(
                     color: _useOnlineShare ? Colors.green : Colors.blue,
                     fontSize: 10,

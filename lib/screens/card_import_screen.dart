@@ -3,6 +3,8 @@ import 'package:infinicard/models/card_model.dart';
 import 'package:infinicard/services/api_service.dart';
 import 'package:infinicard/services/sharing_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:infinicard/models/contact_model.dart';
+import 'package:infinicard/services/contact_storage_service.dart';
 
 class CardImportScreen extends StatefulWidget {
   final String cardId;
@@ -22,6 +24,7 @@ class _CardImportScreenState extends State<CardImportScreen> {
   String _errorMessage = '';
   BusinessCard? _card;
   bool _isSaving = false;
+  bool _isImporting = false;
 
   @override
   void initState() {
@@ -45,7 +48,95 @@ class _CardImportScreenState extends State<CardImportScreen> {
           );
           _isLoading = false;
         });
+        // Auto-save to app contacts if not already present
+        try {
+          final storage = ContactStorageService();
+          final existing = await storage.loadContacts();
+          final exists = existing.any(
+            (c) =>
+                (c.phone.isNotEmpty && c.phone == (_card!.phone)) ||
+                (c.email.isNotEmpty && c.email == (_card!.email)),
+          );
+          if (!exists) {
+            final newContact = Contact(
+              id: widget.cardId,
+              name: _card!.name,
+              title: _card!.title,
+              company: _card!.company,
+              email: _card!.email,
+              phone: _card!.phone,
+              website: _card!.website,
+              linkedIn: '',
+              github: '',
+              avatarUrl: null,
+              notes: 'Imported from share ${widget.cardId}',
+              address: '',
+              isFavorite: false,
+              reminderDate: null,
+              tags: [],
+              createdAt: DateTime.now(),
+            );
+            existing.insert(0, newContact);
+            await storage.saveContacts(existing);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Saved to app contacts')),
+              );
+            }
+          }
+        } catch (_) {}
       } else {
+        final msg = (response['message'] ?? '').toString().toLowerCase();
+        // If backend requires access token to view shared card, fall back to saving a placeholder
+        if (msg.contains('access token') ||
+            msg.contains('access') ||
+            msg.contains('unauthorized') ||
+            msg.contains('401')) {
+          try {
+            final storage = ContactStorageService();
+            final existing = await storage.loadContacts();
+            final placeholder = Contact(
+              id: 'share_${widget.cardId}',
+              name: 'Shared Contact',
+              title: '',
+              company: '',
+              email: '',
+              phone: '',
+              website: '',
+              linkedIn: '',
+              github: '',
+              avatarUrl: null,
+              notes:
+                  'Shared card: ${widget.cardId} (login to view full details)',
+              address: '',
+              isFavorite: false,
+              reminderDate: null,
+              tags: [],
+              createdAt: DateTime.now(),
+            );
+            // avoid duplicates by id
+            final exists = existing.any((c) => c.id == placeholder.id);
+            if (!exists) {
+              existing.insert(0, placeholder);
+              await storage.saveContacts(existing);
+            }
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Saved shared contact to app contacts. Log in to view full details.',
+                  ),
+                ),
+              );
+              Navigator.of(context).popUntil((route) => route.isFirst);
+              Navigator.of(context).pushNamed('/contacts');
+            }
+            return;
+          } catch (e) {
+            // Fall through to error UI below
+          }
+        }
+
         setState(() {
           _hasError = true;
           _errorMessage = response['message'] ?? 'Failed to load card';
@@ -53,11 +144,50 @@ class _CardImportScreenState extends State<CardImportScreen> {
         });
       }
     } catch (e) {
-      setState(() {
-        _hasError = true;
-        _errorMessage = 'Error loading card: $e';
-        _isLoading = false;
-      });
+      // On any exception, try a graceful fallback: save placeholder contact so user doesn't lose the share
+      try {
+        final storage = ContactStorageService();
+        final existing = await storage.loadContacts();
+        final placeholder = Contact(
+          id: 'share_${widget.cardId}',
+          name: 'Shared Contact',
+          title: '',
+          company: '',
+          email: '',
+          phone: '',
+          website: '',
+          linkedIn: '',
+          github: '',
+          avatarUrl: null,
+          notes: 'Shared card: ${widget.cardId} (error fetching details)',
+          address: '',
+          isFavorite: false,
+          reminderDate: null,
+          tags: [],
+          createdAt: DateTime.now(),
+        );
+        final exists = existing.any((c) => c.id == placeholder.id);
+        if (!exists) {
+          existing.insert(0, placeholder);
+          await storage.saveContacts(existing);
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Saved shared contact to app contacts (partial).'),
+            ),
+          );
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          Navigator.of(context).pushNamed('/contacts');
+        }
+        return;
+      } catch (_) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'Error loading card: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -71,6 +201,30 @@ class _CardImportScreenState extends State<CardImportScreen> {
     try {
       // Save vCard file and open it
       await _sharingService.saveAndOpenVCard(_card!);
+
+      // Also save into the app's contacts cache
+      final storage = ContactStorageService();
+      final existing = await storage.loadContacts();
+      final newContact = Contact(
+        id: widget.cardId,
+        name: _card!.name,
+        title: _card!.title,
+        company: _card!.company,
+        email: _card!.email,
+        phone: _card!.phone,
+        website: _card!.website,
+        linkedIn: '',
+        github: '',
+        avatarUrl: null,
+        notes: 'Imported from share ${widget.cardId}',
+        address: '',
+        isFavorite: false,
+        reminderDate: null,
+        tags: [],
+        createdAt: DateTime.now(),
+      );
+      existing.insert(0, newContact);
+      await storage.saveContacts(existing);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -93,6 +247,62 @@ class _CardImportScreenState extends State<CardImportScreen> {
       setState(() {
         _isSaving = false;
       });
+    }
+  }
+
+  Future<void> _importToMyCards() async {
+    if (_card == null) return;
+
+    // Require authentication to import into user's account
+    if (!_apiService.isAuthenticated) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to import this card')),
+        );
+        Navigator.of(context).pushNamed('/login');
+      }
+      return;
+    }
+
+    setState(() {
+      _isImporting = true;
+    });
+
+    try {
+      final res = await _apiService.createCard(
+        fullName: _card!.name,
+        jobTitle: _card!.title.isNotEmpty ? _card!.title : null,
+        companyName: _card!.company.isNotEmpty ? _card!.company : null,
+        email: _card!.email.isNotEmpty ? _card!.email : null,
+        phone: _card!.phone.isNotEmpty ? _card!.phone : null,
+        website: _card!.website.isNotEmpty ? _card!.website : null,
+        notes: 'Imported from shared card ${widget.cardId}',
+      );
+
+      if (res['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Card imported to your account')),
+          );
+          // Navigate to My Cards to show newly imported card
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          Navigator.of(context).pushNamed('/my-cards');
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res['message'] ?? 'Import failed')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error importing card: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isImporting = false);
     }
   }
 
@@ -303,36 +513,70 @@ class _CardImportScreenState extends State<CardImportScreen> {
           // Save to Contacts Button
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _saveToContacts,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.person_add, size: 24),
-                label: Text(
-                  _isSaving ? 'Saving...' : 'Save to Contacts',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isSaving ? null : _saveToContacts,
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.person_add, size: 20),
+                    label: Text(
+                      _isSaving ? 'Saving...' : 'Save to Contacts',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white24),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isImporting ? null : _importToMyCards,
+                    icon: _isImporting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.download, size: 20),
+                    label: Text(
+                      _isImporting ? 'Importing...' : 'Import to My Cards',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
 
