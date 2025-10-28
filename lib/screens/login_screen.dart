@@ -146,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.grey,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
@@ -204,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.grey,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(

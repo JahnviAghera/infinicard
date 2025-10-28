@@ -28,7 +28,8 @@ class ApiService {
   // API Base URL - Use 10.0.2.2 for Android Emulator (maps to localhost on host)
   // For physical devices, use your computer's local IP (e.g., http://192.168.1.100:3000/api)
   static const String baseUrl =
-      'https://truthful-vivienne-bishopless.ngrok-free.dev/api';
+  // 'https://truthful-vivienne-bishopless.ngrok-free.dev/api';
+  'https://truthful-vivienne-bishopless.ngrok-free.dev/api';
   // Token storage keys
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';

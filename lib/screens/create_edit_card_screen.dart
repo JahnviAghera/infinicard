@@ -177,10 +177,10 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0D0C0F),
+      backgroundColor: const Color(0xFFFFFFFF),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D0C0F),
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFFFFFF),
+        foregroundColor: Colors.black,
         title: Text(widget.card == null ? 'Create Card' : 'Edit Card'),
         elevation: 0,
       ),
@@ -361,15 +361,15 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
   }) {
     return TextFormField(
       controller: controller,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: Colors.black),
       keyboardType: keyboardType,
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey),
+        labelStyle: const TextStyle(color: Colors.black),
         prefixIcon: Icon(icon, color: _selectedColor),
         filled: true,
-        fillColor: const Color(0xFF1C1A1B),
+        fillColor: const Color(0xFFFFFFFF),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xFF2B292A)),
@@ -394,7 +394,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1C1A1B),
+        color: const Color(0xFFFFFFFF),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFF2B292A)),
       ),
@@ -689,7 +689,7 @@ class _CreateEditCardScreenState extends State<CreateEditCardScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            backgroundColor: const Color(0xFF1C1A1B),
+            backgroundColor: const Color(0xFFFFFFFF),
             title: Row(
               children: [
                 Container(
