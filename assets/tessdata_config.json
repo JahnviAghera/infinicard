@@ -1,8 +1,11 @@
-{
-  "tessdata": {
-    "dir": "assets/tessdata",
-    "lang": "eng",
-    "psm": 6
-  },
-  "notes": "The plugin attempted to load this asset and couldn't find it. This file tells the app/native loader where tessdata files live. The build task already copies assets/eng.traineddata into android/app/src/main/assets/tessdata/ so native Tesseract can find it at runtime. Rebuild the app after adding this file."
-}
+[
+  {
+    "tessdata": {
+      "dir": "assets/tessdata",
+      "lang": "eng",
+      "langs": ["eng"],
+      "psm": 6
+    },
+    "notes": "The plugin attempted to load this asset and couldn't find it. This file tells the app/native loader where tessdata files live. The build task already copies assets/eng.traineddata into android/app/src/main/assets/tessdata/ so native Tesseract can find it at runtime. Rebuild the app after adding this file."
+  }
+]

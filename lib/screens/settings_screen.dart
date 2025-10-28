@@ -256,8 +256,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       final ctx = context;
 
                       // Navigate to login screen
-                      Navigator.of(ctx).pushNamedAndRemoveUntil('/login', (route) => false);
+                      Navigator.of(
+                        // ignore: use_build_context_synchronously
+                        ctx,
+                      ).pushNamedAndRemoveUntil('/login', (route) => false);
 
+                      // ignore: use_build_context_synchronously
                       ScaffoldMessenger.of(ctx).showSnackBar(
                         const SnackBar(
                           content: Text('You have been logged out'),
@@ -393,10 +397,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       trailing: Switch(
         value: value,
         onChanged: onChanged,
-        activeThumbColor: const Color(0xFF1E88E5),
+        activeTrackColor: const Color(0xFF1E88E5),
       ),
     );
   }
+
   Widget _buildDropdownTile({
     required IconData icon,
     required String title,
@@ -429,4 +434,5 @@ class _SettingsScreenState extends State<SettingsScreen> {
         onChanged: onChanged,
       ),
     );
-  }}
+  }
+}

@@ -256,7 +256,11 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
               ],
             ),
           ),
-          Switch(value: isConnected, onChanged: onToggle, activeThumbColor: color),
+          Switch(
+            value: isConnected,
+            onChanged: onToggle,
+            activeTrackColor: color,
+          ),
         ],
       ),
     );
