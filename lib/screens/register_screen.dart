@@ -522,10 +522,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         _agreeToTerms = value ?? false;
                                       });
                                     },
-                              fillColor: MaterialStateProperty.resolveWith((
-                                Set<MaterialState> states,
+                              fillColor: WidgetStateProperty.resolveWith((
+                                Set<WidgetState> states,
                               ) {
-                                if (states.contains(MaterialState.selected)) {
+                                if (states.contains(WidgetState.selected)) {
                                   return Theme.of(context).colorScheme.primary;
                                 }
                                 return Colors.white.withOpacity(0.3);

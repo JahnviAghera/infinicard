@@ -47,7 +47,7 @@ class SustainabilityService {
   Map<String, dynamic> getAchievement() {
     return {
       'title': 'Eco Warrior',
-      'description': 'Saved ${_cardsShared} paper cards from being printed!',
+      'description': 'Saved $_cardsShared paper cards from being printed!',
       'icon': '🌱',
     };
   }

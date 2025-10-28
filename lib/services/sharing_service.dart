@@ -1,3 +1,4 @@
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,11 +8,25 @@ import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'dart:ui' as ui;
 import 'package:infinicard/models/card_model.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class SharingService {
   static final SharingService _instance = SharingService._internal();
   factory SharingService() => _instance;
   SharingService._internal();
+
+  Future<bool> _requestStoragePermission() async {
+    if (Platform.isAndroid) {
+      var status = await Permission.storage.status;
+      if (!status.isGranted) {
+        final result = await Permission.storage.request();
+        return result.isGranted;
+      }
+      return true;
+    }
+    // iOS does not require explicit storage permission for saving to temp dir
+    return true;
+  }
 
   /// Generate vCard 3.0 format contact data
   String generateVCard(BusinessCard card) {
@@ -71,10 +86,10 @@ class SharingService {
   /// Escape special characters for vCard format
   String _escapeVCard(String text) {
     return text
-        .replaceAll('\\', '\\\\')
-        .replaceAll(',', '\\,')
-        .replaceAll(';', '\\;')
-        .replaceAll('\n', '\\n');
+        .replaceAll('\\\\', '\\\\\\\\')
+        .replaceAll(',', '\\\\,')
+        .replaceAll(';', '\\\\;')
+        .replaceAll('\\n', '\\\\n');
   }
 
   /// Generate human-readable text for sharing
@@ -144,7 +159,7 @@ class SharingService {
 
     buffer.writeln('📇 ${card.name}');
     if (card.title.isNotEmpty) {
-      buffer.writeln('${card.title}');
+      buffer.writeln(card.title);
     }
     if (card.company.isNotEmpty) {
       buffer.writeln('🏢 ${card.company}');
@@ -262,6 +277,9 @@ class SharingService {
 
   /// Export as vCard file
   Future<String> exportAsVCardFile(BusinessCard card) async {
+    if (!await _requestStoragePermission()) {
+      throw Exception("Storage permission not granted");
+    }
     try {
       final vcard = generateVCard(card);
       final directory = await getTemporaryDirectory();
@@ -365,6 +383,9 @@ class SharingService {
     BusinessCard card, {
     Rect? sharePositionOrigin,
   }) async {
+    if (!await _requestStoragePermission()) {
+      throw Exception("Storage permission not granted");
+    }
     try {
       final qrImageBytes = await generateQRCodeImage(card);
       final directory = await getTemporaryDirectory();

@@ -11,7 +11,7 @@ class QRImportScreen extends StatefulWidget {
 
 class _QRImportScreenState extends State<QRImportScreen> {
   bool _isScanning = true;
-  MobileScannerController _controller = MobileScannerController();
+  final MobileScannerController _controller = MobileScannerController();
 
   void _handleRawValue(String? raw) {
     if (raw == null) return;

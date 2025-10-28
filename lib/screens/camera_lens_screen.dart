@@ -178,8 +178,9 @@ class _CameraLensScreenState extends State<CameraLensScreen>
   }
 
   Future<void> _capturePhoto() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized)
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
+    }
     if (_isProcessing) return;
     setState(() => _isProcessing = true);
     try {
@@ -193,10 +194,11 @@ class _CameraLensScreenState extends State<CameraLensScreen>
       );
     } catch (e) {
       debugPrint('Capture error: $e');
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Capture error: $e')));
+      }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -486,7 +488,7 @@ class _CameraLensScreenState extends State<CameraLensScreen>
 
 /// Small scanning overlay widget
 class _ScanningOverlay extends StatelessWidget {
-  const _ScanningOverlay({Key? key}) : super(key: key);
+  const _ScanningOverlay({super.key});
 
   @override
   Widget build(BuildContext context) {

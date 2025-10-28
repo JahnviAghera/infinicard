@@ -71,8 +71,9 @@ class _ScanCardScreenState extends State<ScanCardScreen> {
   Future<void> _captureAndProcess() async {
     if (_controller == null ||
         !_controller!.value.isInitialized ||
-        _isProcessing)
+        _isProcessing) {
       return;
+    }
 
     setState(() {
       _isProcessing = true;
@@ -434,8 +435,7 @@ class OCRResultScreen extends StatefulWidget {
   final String imagePath;
   final Map<String, String>? initialData;
 
-  const OCRResultScreen({Key? key, required this.imagePath, this.initialData})
-    : super(key: key);
+  const OCRResultScreen({super.key, required this.imagePath, this.initialData});
 
   @override
   State<OCRResultScreen> createState() => _OCRResultScreenState();
@@ -536,8 +536,9 @@ class _OCRResultScreenState extends State<OCRResultScreen> {
         final low = line.toLowerCase();
         if (low.contains('@') ||
             phoneReg.hasMatch(line) ||
-            urlReg.hasMatch(line))
+            urlReg.hasMatch(line)) {
           continue;
+        }
         if (name.isEmpty && RegExp(r"[A-Za-z]{2,}").hasMatch(line)) {
           name = line;
           continue;

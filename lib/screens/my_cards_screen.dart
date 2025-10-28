@@ -200,7 +200,7 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
       } else {
         // Default Date sort: if BusinessCard has createdAt, sort by it descending
         try {
-          DateTime _parseDate(dynamic value) {
+          DateTime parseDate(dynamic value) {
             if (value == null) return DateTime(1970);
             if (value is DateTime) return value;
             if (value is String) {
@@ -214,8 +214,8 @@ class _MyCardsScreenState extends State<MyCardsScreen> {
           }
 
           _cards.sort((a, b) {
-            final aDate = _parseDate(a.createdAt);
-            final bDate = _parseDate(b.createdAt);
+            final aDate = parseDate(a.createdAt);
+            final bDate = parseDate(b.createdAt);
             return bDate.compareTo(aDate);
           });
         } catch (_) {

@@ -628,6 +628,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   // Called when a route above this one has been popped and this route
   // is now visible (e.g., user returned from My Cards). Refresh content.
+  @override
   void didPopNext() {
     _refresh();
   }
@@ -1187,7 +1188,7 @@ class _ContactsScreenState extends State<ContactsScreen> {
 
     _designations = [
       "All",
-      ..._allContacts.map((c) => c['designation']!).toSet().toList(),
+      ..._allContacts.map((c) => c['designation']!).toSet(),
     ];
     _selectedDesignation = _designations.first;
     _filteredContacts = List.from(_allContacts);
