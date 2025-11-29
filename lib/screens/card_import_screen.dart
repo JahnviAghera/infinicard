@@ -8,8 +8,10 @@ import 'package:infinicard/services/contact_storage_service.dart';
 
 class CardImportScreen extends StatefulWidget {
   final String cardId;
+  // Optional database / tenant hint passed via deep link query param
+  final String? db;
 
-  const CardImportScreen({super.key, required this.cardId});
+  const CardImportScreen({super.key, required this.cardId, this.db});
 
   @override
   State<CardImportScreen> createState() => _CardImportScreenState();
@@ -39,7 +41,7 @@ class _CardImportScreenState extends State<CardImportScreen> {
     });
 
     try {
-      final response = await _apiService.getPublicCard(widget.cardId);
+  final response = await _apiService.getPublicCard(widget.cardId, db: widget.db);
 
       if (response['success'] == true && response['data'] != null) {
         setState(() {

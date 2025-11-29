@@ -146,15 +146,50 @@ class SharingService {
 
   /// Generate shareable web link for the card
   /// This link works as both a deep link (if app installed) and web link (to download app)
-  String generateShareLink(BusinessCard card) {
-    // Using a web URL that supports universal/app links
-    // When app is installed: Opens directly in app
-    // When app is not installed: Opens web page with app download option
-    return 'https://infinicard.app/c/${card.id}';
+  /// Generate a smart share link. Returns both the web universal link and the
+  /// in-app deep link (stacked). Optionally include a `db` parameter and
+  /// other card-related params (timestamp) so the receiver can route to the
+  /// correct backend/tenant if needed.
+  ///
+  /// Example returned string:
+  /// https://infinicard.app/c/abc123?db=prod&ts=2025-11-01T...\n
+  /// infinicard://share/abc123?db=prod&ts=2025-11-01T...
+  String generateShareLink(BusinessCard card, {String? db}) {
+    final cardId = Uri.encodeComponent(card.id);
+    // Add optional params
+    final params = <String, String>{};
+    if (db != null && db.isNotEmpty) params['db'] = db;
+    // include a timestamp to help identify the share
+    params['ts'] = Uri.encodeComponent(card.createdAt.toUtc().toIso8601String());
+
+    String _buildQuery(Map<String, String> p) {
+      if (p.isEmpty) return '';
+      return p.entries.map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}').join('&');
+    }
+
+    final query = _buildQuery(params);
+
+    final web = 'https://infinicard.app/c/$cardId${query.isNotEmpty ? '?$query' : ''}';
+    final app = 'infinicard://share/$cardId${query.isNotEmpty ? '?$query' : ''}';
+
+    // Return both links (web first so platforms that auto-detect https links
+    // pick the universal link). The app link is included for clarity and
+    // scenarios where the receiver prefers app-scheme URLs.
+    return '$web\n$app';
+  }
+
+  /// Return only the in-app deep link (scheme) for the card.
+  String generateInAppDeepLink(BusinessCard card, {String? db}) {
+    final cardId = Uri.encodeComponent(card.id);
+    final params = <String, String>{};
+    if (db != null && db.isNotEmpty) params['db'] = db;
+    params['ts'] = Uri.encodeComponent(card.createdAt.toUtc().toIso8601String());
+    final query = params.entries.map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}').join('&');
+    return 'infinicard://share/$cardId${query.isNotEmpty ? '?$query' : ''}';
   }
 
   /// Generate text with shareable link
-  String generateTextWithLink(BusinessCard card) {
+  String generateTextWithLink(BusinessCard card, {String? db}) {
     final buffer = StringBuffer();
 
     buffer.writeln('📇 ${card.name}');
@@ -174,7 +209,7 @@ class SharingService {
 
     buffer.writeln('');
     buffer.writeln('💳 View my digital business card:');
-    buffer.writeln(generateShareLink(card));
+    buffer.writeln(generateShareLink(card, db: db));
     buffer.writeln('');
     buffer.writeln('(Opens in Infinicard app if installed, or get the app)');
 
@@ -186,10 +221,11 @@ class SharingService {
     BusinessCard card, {
     Rect? sharePositionOrigin,
     bool useLink = true, // Use web link by default
+    String? db,
   }) async {
     try {
       final text = useLink
-          ? generateTextWithLink(card)
+          ? generateTextWithLink(card, db: db)
           : generateReadableText(card);
       await Share.share(
         text,
@@ -206,10 +242,11 @@ class SharingService {
   Future<void> shareViaEmail(
     BusinessCard card, {
     String? recipientEmail,
+    String? db,
   }) async {
     try {
       final subject = Uri.encodeComponent('Business Card - ${card.name}');
-      final textWithLink = generateTextWithLink(card);
+      final textWithLink = generateTextWithLink(card, db: db);
 
       final body = Uri.encodeComponent(textWithLink);
 
@@ -231,9 +268,9 @@ class SharingService {
   }
 
   /// Share via SMS
-  Future<void> shareViaSMS(BusinessCard card, {String? phoneNumber}) async {
+  Future<void> shareViaSMS(BusinessCard card, {String? phoneNumber, String? db}) async {
     try {
-      final text = Uri.encodeComponent(generateTextWithLink(card));
+      final text = Uri.encodeComponent(generateTextWithLink(card, db: db));
       final smsUrl =
           'sms:${phoneNumber ?? ''}${Platform.isIOS ? '&' : '?'}body=$text';
       final uri = Uri.parse(smsUrl);
@@ -254,9 +291,10 @@ class SharingService {
   Future<void> shareViaWhatsApp(
     BusinessCard card, {
     String? phoneNumber,
+    String? db,
   }) async {
     try {
-      final text = Uri.encodeComponent(generateTextWithLink(card));
+      final text = Uri.encodeComponent(generateTextWithLink(card, db: db));
       final whatsappUrl = phoneNumber != null && phoneNumber.isNotEmpty
           ? 'https://wa.me/$phoneNumber?text=$text'
           : 'https://wa.me/?text=$text';

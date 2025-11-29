@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1400" viewBox="0 0 1100 1400">
+  <style>
+    .box { fill:#ffffff; stroke:#2b6cb0; stroke-width:2; rx:10; ry:10 }
+    .box-cta { fill:#2b6cb0; stroke:#1e40af; stroke-width:2; rx:10; ry:10 }
+    .text { font-family: Inter, Arial, sans-serif; font-size:14px; fill:#0f172a }
+    .title { font-family: Inter, Arial, sans-serif; font-size:18px; fill:#0f172a; font-weight:700 }
+    .arrow { stroke:#2b6cb0; stroke-width:2; fill:none; marker-end:url(#arrowhead) }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2b6cb0" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="50" y="40" class="title">Infinicard - User Flow</text>
+
+  <!-- Launch -->
+  <rect class="box" x="50" y="70" width="300" height="60" />
+  <text x="200" y="105" text-anchor="middle" class="text">Launch App</text>
+
+  <!-- Onboarding? -->
+  <rect class="box" x="420" y="70" width="300" height="60" />
+  <text x="570" y="95" text-anchor="middle" class="text">Onboarding?</text>
+  <text x="570" y="115" text-anchor="middle" class="text">(First run)</text>
+
+  <path d="M350 100 L420 100" class="arrow" />
+
+  <!-- Onboarding box and skip path -->
+  <rect class="box" x="420" y="160" width="300" height="80" />
+  <text x="570" y="200" text-anchor="middle" class="text">Onboarding</text>
+  <text x="570" y="220" text-anchor="middle" class="text">(slides, permissions)</text>
+  <path d="M570 240 L570 280" class="arrow" />
+
+  <!-- Auth check -->
+  <rect class="box" x="50" y="300" width="300" height="80" />
+  <text x="200" y="340" text-anchor="middle" class="text">Authenticated?</text>
+
+  <path d="M570 360 L350 360" class="arrow" />
+
+  <!-- Login/Register -->
+  <rect class="box" x="420" y="300" width="300" height="80" />
+  <text x="570" y="340" text-anchor="middle" class="text">Login / Register</text>
+
+  <path d="M200 380 L200 420" class="arrow" />
+
+  <!-- Home -->
+  <rect class="box-cta" x="350" y="420" width="400" height="90" />
+  <text x="550" y="465" text-anchor="middle" class="text" fill="#ffffff">Home</text>
+  <text x="550" y="485" text-anchor="middle" class="text" fill="#ffffff">(My Cards • Scan • Create • Settings)</text>
+
+  <!-- Branches from Home -->
+  <!-- My Cards -->
+  <rect class="box" x="50" y="560" width="240" height="80" />
+  <text x="170" y="600" text-anchor="middle" class="text">My Cards</text>
+  <path d="M450 510 L170 560" class="arrow" />
+
+  <!-- Create Card -->
+  <rect class="box" x="430" y="560" width="240" height="80" />
+  <text x="550" y="600" text-anchor="middle" class="text">Create / Edit Card</text>
+  <path d="M650 510 L550 560" class="arrow" />
+
+  <!-- Scan / Lens -->
+  <rect class="box" x="810" y="560" width="240" height="80" />
+  <text x="930" y="600" text-anchor="middle" class="text">Scan / Lens</text>
+  <text x="930" y="620" text-anchor="middle" class="text">(QR & OCR)</text>
+  <path d="M750 510 L930 560" class="arrow" />
+
+  <!-- Card Detail -->
+  <rect class="box" x="50" y="680" width="360" height="80" />
+  <text x="230" y="720" text-anchor="middle" class="text">Card Detail</text>
+  <text x="230" y="740" text-anchor="middle" class="text">(View • Edit • Share)</text>
+  <path d="M170 640 L170 680" class="arrow" />
+
+  <!-- Share Options -->
+  <rect class="box" x="460" y="680" width="360" height="120" />
+  <text x="640" y="710" text-anchor="middle" class="text">Share Options Sheet</text>
+  <text x="640" y="730" text-anchor="middle" class="text">Quick: Text / Email / SMS / WhatsApp</text>
+  <text x="640" y="750" text-anchor="middle" class="text">Export: QR / vCard / Copy</text>
+  <path d="M410 720 L460 720" class="arrow" />
+
+  <!-- QR and vCard outputs -->
+  <rect class="box" x="50" y="820" width="360" height="80" />
+  <text x="230" y="860" text-anchor="middle" class="text">QR (app link or vCard)</text>
+  <text x="230" y="880" text-anchor="middle" class="text">or vCard file (.vcf)</text>
+  <path d="M640 800 L320 820" class="arrow" />
+
+  <!-- Share text path (to external apps) -->
+  <rect class="box" x="460" y="920" width="360" height="80" />
+  <text x="640" y="960" text-anchor="middle" class="text">Share Text / Link</text>
+  <text x="640" y="980" text-anchor="middle" class="text">(includes https://infinicard.app/c/{id})</text>
+  <path d="M640 860 L640 920" class="arrow" />
+
+  <!-- Receiver: Mobile tap link or scan QR -->
+  <rect class="box" x="50" y="1040" width="760" height="120" />
+  <text x="430" y="1080" text-anchor="middle" class="text">Receiver: Tap link or scan QR</text>
+  <text x="430" y="1100" text-anchor="middle" class="text">Opens app (App Links) or web landing</text>
+
+  <!-- Card Import Screen -->
+  <rect class="box-cta" x="50" y="1180" width="760" height="120" />
+  <text x="430" y="1220" text-anchor="middle" class="text" fill="#ffffff">Card Import Screen</text>
+  <text x="430" y="1240" text-anchor="middle" class="text" fill="#ffffff">Preview • Save vCard • Save to App Contacts • Import to Account</text>
+  <path d="M640 1000 L430 1040" class="arrow" />
+
+  <!-- Footer note -->
+  <text x="50" y="1360" class="text">Notes: Universal link is first priority (https), app-scheme fallback used for QR; server provides public card data via /cards/public/{id}.</text>
+</svg>

@@ -107,8 +107,16 @@ class _MyAppState extends State<MyApp> {
     }
 
     if (cardId != null) {
-      // Navigate to card import screen
-      Navigator.of(context).pushNamed('/share/$cardId');
+      // Extract optional 'db' query parameter (if provided by the link)
+      final dbParam = uri.queryParameters['db'];
+
+      // Navigate to card import screen and pass db if available so the
+      // import screen / API client can use the correct backend/tenant.
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => CardImportScreen(cardId: cardId!, db: dbParam),
+        ),
+      );
     }
   }
 

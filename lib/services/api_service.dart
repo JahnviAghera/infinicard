@@ -494,10 +494,17 @@ class ApiService {
 
   /// Get public card by ID (no authentication required)
   /// This is used for sharing - anyone with the link can view the card
-  Future<Map<String, dynamic>> getPublicCard(String id) async {
+  /// Fetch a public/shared card. If `db` is provided it will be sent as a
+  /// query parameter (used as a tenant/database hint on the backend).
+  Future<Map<String, dynamic>> getPublicCard(String id, {String? db}) async {
     try {
+      // Build URI with optional db query parameter
+      final uri = (db != null && db.isNotEmpty)
+          ? Uri.parse('$baseUrl/cards/public/$id?db=${Uri.encodeQueryComponent(db)}')
+          : Uri.parse('$baseUrl/cards/public/$id');
+
       final response = await http.get(
-        Uri.parse('$baseUrl/cards/public/$id'),
+        uri,
         headers: _getHeaders(includeAuth: false),
       );
 

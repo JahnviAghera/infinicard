@@ -199,8 +199,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         fillColor: Colors.white.withOpacity(0.1),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(
+                            color: Colors.grey, // or use Colors.grey.shade300 for lighter grey
+                            width: 1,
+                          ),
                         ),
+
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(

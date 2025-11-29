@@ -233,9 +233,9 @@ class _SharingScreenState extends State<SharingScreen> {
   }
   Widget _buildQRView() {
     // Use online share URL or vCard data
-    final qrData = _useOnlineShare
-        ? 'infinicard://share/${widget.card.id}' // Deep link for app-to-app sharing
-        : _sharingService.generateVCard(widget.card); // Traditional vCard
+  final qrData = _useOnlineShare
+    ? _sharingService.generateInAppDeepLink(widget.card)
+    : _sharingService.generateVCard(widget.card); // Traditional vCard
     return Container(
       key: const ValueKey('qr'),
       margin: const EdgeInsets.symmetric(horizontal: 24),
