@@ -1,0 +1,71 @@
+╔══════════════════════════════════════════════════════════════╗
+║          INFINICARD DATABASE ADMIN - QUICK START            ║
+╚══════════════════════════════════════════════════════════════╝
+
+🌐 ADMIN URL: http://localhost:8080
+
+🔐 LOGIN CREDENTIALS:
+┌────────────────────────────────────────────────────────────┐
+│ System:   PostgreSQL  ⚠️ NOT MySQL!                        │
+│ Server:   postgres                                         │
+│ Username: infinicard_user                                  │
+│ Password: infinicard_pass_2024                             │
+│ Database: infinicard                                       │
+└────────────────────────────────────────────────────────────┘
+
+📊 YOUR TABLES (10 total):
+  ✓ business_cards       - Business card data
+  ✓ contacts            - Contact information  
+  ✓ users               - User accounts
+  ✓ tags                - Category tags
+  ✓ card_tags           - Card ↔ Tag relationships
+  ✓ contact_tags        - Contact ↔ Tag relationships
+  ✓ card_social_links   - Social media (cards)
+  ✓ contact_social_links - Social media (contacts)
+  ✓ scan_history        - OCR scan logs
+  ✓ sync_log            - Change tracking
+
+⚡ QUICK ACTIONS:
+  • View data:    Click table name → See all records
+  • Edit row:     Click row → Modify → Save
+  • Add record:   Table → "New item" → Fill form → Save
+  • Delete:       Check boxes → Delete button
+  • Search:       Table → "Search" → Enter criteria
+  • Run SQL:      "SQL command" → Type query → Execute
+  • Export:       "Export" → Choose format → Download
+  • Create table: "Create table" → Define columns → Save
+
+📝 SAMPLE SQL QUERIES:
+
+View all business cards:
+  SELECT * FROM business_cards WHERE is_deleted = FALSE;
+
+Search by company:
+  SELECT * FROM business_cards WHERE company_name LIKE '%Tech%';
+
+Count contacts:
+  SELECT COUNT(*) FROM contacts;
+
+Cards with tags:
+  SELECT bc.full_name, t.name as tag
+  FROM business_cards bc
+  JOIN card_tags ct ON bc.id = ct.card_id
+  JOIN tags t ON ct.tag_id = t.id;
+
+🔧 DOCKER COMMANDS:
+  Start:    docker-compose up -d
+  Stop:     docker-compose down
+  Logs:     docker-compose logs -f
+  Restart:  docker-compose restart
+  Status:   docker-compose ps
+
+💡 TIPS:
+  • Sample data included (5 cards, 3 contacts)
+  • Database auto-initializes on first start
+  • Changes save instantly
+  • UUID fields auto-generate (leave blank)
+  • Port: 5433 (not 5432)
+
+📖 FULL GUIDE: See ADMINER_GUIDE.md for detailed tutorial
+
+⚠️  SECURITY: Change password before production deployment!
